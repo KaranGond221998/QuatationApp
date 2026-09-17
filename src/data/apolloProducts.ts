@@ -505,13 +505,12 @@ export const apolloProductsCatalog: ApolloProduct[] = [
 ];
 
 export const defaultB2BTerms: string[] = [
-  "Make & Material: Structure Make APOLLO (Hot-dip / pre-galvanised 80+ micron steel conforming to MNRE standards). Tata Structure also available upon confirmation.",
+  "Make & Material: Structure Make APOLLO (Hot-dip / pre-galvanised 80+ micron steel conforming to MNRE standards).",
   "Rate Basis: Rates quoted are Ex-Factory / Warehouse basis. Freight & transit insurance to be borne by buyer on To-Pay basis.",
-  "Taxes: GST @ 18% extra as applicable on all mounting structure, clamps, panels, and cables.",
+  "Taxes: GST extra as applicable on mounting structure, hardware, and accessories.",
   "Payment Terms: 100% advance against Proforma Invoice prior to dispatch clearance.",
   "Delivery Period: Materials dispatched within 3 to 5 business days upon receipt of confirmed PO and payment clearance.",
   "Validity: Prices quoted are valid for 7 days from the quotation date, subject to raw material steel index variation.",
-  "Warranty: 25 Years warranty on structural integrity and hot-dip galvanization against atmospheric corrosion.",
   "Unloading: Unloading of materials at buyer site/destination is strictly in buyer scope.",
 ];
 

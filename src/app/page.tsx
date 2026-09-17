@@ -246,7 +246,13 @@ function QuotationBuilder() {
           if (fd.serviceProposalTitle) setServiceProposalTitle(fd.serviceProposalTitle);
           // B2B state restore
           if (fd.b2bItems) setB2bItems(fd.b2bItems);
-          if (fd.b2bTerms) setB2bTerms(fd.b2bTerms);
+          if (fd.b2bTerms) {
+            setB2bTerms(
+              fd.b2bTerms
+                .filter((t: string) => !t.toLowerCase().includes("warranty: 25 year") && !t.toLowerCase().includes("warranty: 25-year"))
+                .map((t: string) => t.replace(/\.?\s*Tata Structure also available upon confirmation\.?/gi, "").trim())
+            );
+          }
           if (fd.b2bProposalTitle) setB2bProposalTitle(fd.b2bProposalTitle);
           if (fd.b2bStructureMake) setB2bStructureMake(fd.b2bStructureMake);
           if (fd.b2bClientGstin) setB2bClientGstin(fd.b2bClientGstin);
@@ -1297,7 +1303,16 @@ function QuotationBuilder() {
                         key={make}
                         label={make}
                         size="small"
-                        onClick={() => setB2bStructureMake(make)}
+                        onClick={() => {
+                          setB2bStructureMake(make);
+                          setB2bTerms((prev) =>
+                            prev.map((t) =>
+                              t.startsWith("Make & Material:")
+                                ? `Make & Material: Structure Make ${make} (Hot-dip / pre-galvanised 80+ micron steel conforming to MNRE standards).`
+                                : t
+                            )
+                          );
+                        }}
                         color={b2bStructureMake === make ? "warning" : "default"}
                         variant={b2bStructureMake === make ? "filled" : "outlined"}
                         sx={{ fontWeight: "bold" }}
@@ -1307,7 +1322,7 @@ function QuotationBuilder() {
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     <Verified sx={{ fontSize: 14, color: "#16a34a" }} />
                     <Typography variant="caption" sx={{ color: "#166534", fontWeight: 700 }}>
-                      AVAILABLE AT BEST RATE • TATA STRUCTURE AVAILABLE
+                      AVAILABLE AT BEST RATE • MNRE STANDARD COMPLIANT
                     </Typography>
                   </Box>
                 </Box>
@@ -1976,9 +1991,6 @@ function QuotationBuilder() {
               <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1, mt: 0.2, flexWrap: "wrap" }}>
                 <span style={{ backgroundColor: "#d97706", color: "white", padding: "1px 6px", borderRadius: "3px", fontSize: "8px", fontWeight: 800, letterSpacing: "0.5px" }}>
                   MAKE: {b2bStructureMake}
-                </span>
-                <span style={{ color: "#b45309", fontSize: "9px", fontWeight: 800 }}>
-                  • TATA STRUCTURE AVAILABLE •
                 </span>
                 <span style={{ backgroundColor: "#16a34a", color: "white", padding: "1px 6px", borderRadius: "3px", fontSize: "8px", fontWeight: 800, letterSpacing: "0.5px" }}>
                   ★ AVAILABLE AT BEST RATE ★
