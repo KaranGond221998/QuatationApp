@@ -46,6 +46,10 @@ import {
   Email,
   AddCircle,
   CleaningServices,
+  Construction,
+  Search as SearchIcon,
+  Verified,
+  Factory,
 } from "@mui/icons-material";
 import { useReactToPrint } from "react-to-print";
 import Link from "next/link";
@@ -66,6 +70,13 @@ import {
 } from "@/lib/companyDetails";
 import type { ServiceItem } from "@/lib/companyDetails";
 import type { QuotationComponent } from "@/types";
+import {
+  apolloCategories,
+  apolloProductsCatalog,
+  defaultB2BTerms,
+  numberToWordsINR,
+} from "@/data/apolloProducts";
+import type { ApolloProduct, ApolloLineItem } from "@/data/apolloProducts";
 
 // System type configuration
 const systemTypes = [
@@ -74,6 +85,7 @@ const systemTypes = [
   { id: "Hybrid", name: "Hybrid", icon: <SettingsInputComponent fontSize="small" />, color: "#2196F3" },
   { id: "VFD/Drive", name: "VFD/Drive", icon: <Water fontSize="small" />, color: "#9C27B0" },
   { id: "Service", name: "Service/O&M", icon: <CleaningServices fontSize="small" />, color: "#0d47a1" },
+  { id: "ApolloB2B", name: "Structure / B2B", icon: <Construction fontSize="small" />, color: "#d97706" },
 ];
 
 // Panel types
@@ -106,6 +118,7 @@ function QuotationBuilder() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const editId = searchParams.get('edit');
+  const tabParam = searchParams.get('tab');
 
   // Edit Mode State
   const [editingQuotationId, setEditingQuotationId] = useState<string | null>(null);
@@ -121,7 +134,9 @@ function QuotationBuilder() {
   const [customerAddress, setCustomerAddress] = useState("");
 
   // System Configuration
-  const [selectedSystemType, setSelectedSystemType] = useState("On-grid");
+  const [selectedSystemType, setSelectedSystemType] = useState(
+    tabParam === "ApolloB2B" || tabParam === "b2b" || tabParam === "structure" ? "ApolloB2B" : "On-grid"
+  );
   const [capacityKw, setCapacityKw] = useState<number>(3);
   const [phase, setPhase] = useState<number>(1);
 
@@ -178,7 +193,7 @@ function QuotationBuilder() {
   // ===== EDIT MODE: Load quotation data from URL param =====
   useEffect(() => {
     if (!editId || editLoaded) return;
-    
+
     const loadQuotation = async () => {
       try {
         setLoading(true);
@@ -188,10 +203,10 @@ function QuotationBuilder() {
           setNotification({ open: true, message: "Failed to load quotation for editing", severity: "error" });
           return;
         }
-        
+
         const q = result.data;
         setEditingQuotationId(q.id);
-        
+
         // If form_data is saved (full form snapshot), use it for exact restoration
         const fd = q.form_data;
         if (fd) {
@@ -224,6 +239,21 @@ function QuotationBuilder() {
           if (fd.extraWireEnabled !== undefined) setExtraWireEnabled(fd.extraWireEnabled);
           if (fd.extraWireLength !== undefined) setExtraWireLength(fd.extraWireLength);
           if (fd.extraWireRate !== undefined) setExtraWireRate(fd.extraWireRate);
+          // Service state restore
+          if (fd.serviceItems) setServiceItems(fd.serviceItems);
+          if (fd.serviceTerms) setServiceTerms(fd.serviceTerms);
+          if (fd.serviceGst !== undefined) setServiceGst(fd.serviceGst);
+          if (fd.serviceProposalTitle) setServiceProposalTitle(fd.serviceProposalTitle);
+          // B2B state restore
+          if (fd.b2bItems) setB2bItems(fd.b2bItems);
+          if (fd.b2bTerms) setB2bTerms(fd.b2bTerms);
+          if (fd.b2bProposalTitle) setB2bProposalTitle(fd.b2bProposalTitle);
+          if (fd.b2bStructureMake) setB2bStructureMake(fd.b2bStructureMake);
+          if (fd.b2bClientGstin) setB2bClientGstin(fd.b2bClientGstin);
+          if (fd.b2bDispatchLocation) setB2bDispatchLocation(fd.b2bDispatchLocation);
+          if (fd.b2bPaymentTerms) setB2bPaymentTerms(fd.b2bPaymentTerms);
+          if (fd.b2bDeliveryDays) setB2bDeliveryDays(fd.b2bDeliveryDays);
+          if (fd.b2bValidDays !== undefined) setB2bValidDays(fd.b2bValidDays);
         } else {
           // Fallback: restore from basic quotation fields
           if (q.capacity_kw) setCapacityKw(q.capacity_kw);
@@ -238,7 +268,7 @@ function QuotationBuilder() {
             setPriceInput(Math.round(q.base_price * (1 + (q.gst_rate || 0) / 100)));
           }
         }
-        
+
         // Always restore customer info and components/terms
         setCustomerName(q.customer_name || "");
         setCustomerPhone(q.customer_phone || "");
@@ -249,7 +279,7 @@ function QuotationBuilder() {
         if (q.terms && Array.isArray(q.terms) && q.terms.length > 0) {
           setTerms(q.terms);
         }
-        
+
         setEditLoaded(true);
         setNotification({ open: true, message: `Editing quotation for ${q.customer_name}`, severity: "info" });
       } catch (error) {
@@ -259,7 +289,7 @@ function QuotationBuilder() {
         setLoading(false);
       }
     };
-    
+
     loadQuotation();
   }, [editId, editLoaded]);
 
@@ -302,6 +332,196 @@ function QuotationBuilder() {
     }
     setServiceItems(updated);
   };
+
+  // ===== B2B / STRUCTURE MODE STATE =====
+  const isB2BMode = selectedSystemType === "ApolloB2B";
+  const [b2bItems, setB2bItems] = useState<ApolloLineItem[]>([
+    {
+      id: "item-1",
+      productId: "apl-raf-2180",
+      name: "Rafter 21ft 80X40",
+      sku: "APL-RAF-2180",
+      category: "G.I. Solar Mounting Structure",
+      unit: "Pcs",
+      basePrice: 450,
+      qty: 10,
+      gstRate: 18,
+      amount: 4500,
+    },
+    {
+      id: "item-2",
+      productId: "apl-pur-2141",
+      name: "Purlin 21ft 41X41",
+      sku: "APL-PUR-2141",
+      category: "G.I. Solar Mounting Structure",
+      unit: "Pcs",
+      basePrice: 380,
+      qty: 20,
+      gstRate: 18,
+      amount: 7600,
+    },
+    {
+      id: "item-3",
+      productId: "apl-mc-001",
+      name: "Mid Clamp",
+      sku: "APL-MC-001",
+      category: "Clamps & Joiners",
+      unit: "Pcs",
+      basePrice: 35,
+      qty: 40,
+      gstRate: 18,
+      amount: 1400,
+    },
+    {
+      id: "item-4",
+      productId: "apl-dcw-4p",
+      name: "DC Wire 4MM Polycab (100Mtr)",
+      sku: "APL-DCW-4P",
+      category: "Wires & Cables",
+      unit: "BDL",
+      basePrice: 5500,
+      qty: 1,
+      gstRate: 18,
+      amount: 5500,
+    },
+  ]);
+  const [b2bTerms, setB2bTerms] = useState<string[]>([...defaultB2BTerms]);
+  const [b2bProposalTitle, setB2bProposalTitle] = useState("COMMERCIAL QUOTATION FOR SOLAR MOUNTING STRUCTURE & BOS");
+  const [b2bStructureMake, setB2bStructureMake] = useState<"APOLLO" | "TATA" | "APOLLO / TATA">("APOLLO");
+  const [b2bClientGstin, setB2bClientGstin] = useState("");
+  const [b2bDispatchLocation, setB2bDispatchLocation] = useState("Ex-Factory Pithampur / Indore / Varanasi");
+  const [b2bPaymentTerms, setB2bPaymentTerms] = useState("100% Advance against PI before dispatch");
+  const [b2bDeliveryDays, setB2bDeliveryDays] = useState("3-5 business days upon PO receipt");
+  const [b2bValidDays, setB2bValidDays] = useState(7);
+  const [b2bSelectedCat, setB2bSelectedCat] = useState<string>("All");
+  const [b2bSearchQuery, setB2bSearchQuery] = useState("");
+  const [b2bCatalog, setB2bCatalog] = useState<ApolloProduct[]>(apolloProductsCatalog);
+
+  const fetchB2BCatalog = useCallback(() => {
+    fetch("/api/structure-catalog")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          setB2bCatalog(json.data);
+        }
+      })
+      .catch(() => console.log("Using default structure catalog fallback"));
+  }, []);
+
+  useEffect(() => {
+    fetchB2BCatalog();
+  }, [fetchB2BCatalog, selectedSystemType]);
+
+  const [editB2BTermIdx, setEditB2BTermIdx] = useState(-1);
+  const [editB2BTermText, setEditB2BTermText] = useState("");
+  const [addB2BCustomDialog, setAddB2BCustomDialog] = useState(false);
+  const [customB2BItem, setCustomB2BItem] = useState({
+    name: "",
+    sku: "",
+    category: "G.I. Solar Mounting Structure",
+    unit: "Pcs",
+    basePrice: 0,
+    qty: 1,
+    gstRate: 18,
+  });
+
+  const b2bSubtotal = useMemo(() => b2bItems.reduce((acc, item) => acc + (item.basePrice * item.qty), 0), [b2bItems]);
+  const b2bGstAmount = useMemo(() => {
+    const totalGst = b2bItems.reduce((acc, item) => {
+      const rate = item.gstRate !== undefined ? Number(item.gstRate) : 18;
+      return acc + ((item.basePrice * item.qty * rate) / 100);
+    }, 0);
+    return +totalGst.toFixed(2);
+  }, [b2bItems]);
+  const b2bGrandTotal = useMemo(() => Math.round(b2bSubtotal + b2bGstAmount), [b2bSubtotal, b2bGstAmount]);
+
+  // Determine if single uniform GST rate or mixed rates across line items
+  const b2bUniqueGstRates = useMemo(() => Array.from(new Set(b2bItems.map(it => it.gstRate !== undefined ? Number(it.gstRate) : 18))), [b2bItems]);
+  const b2bGstLabel = useMemo(() => {
+    if (b2bUniqueGstRates.length === 1) {
+      const r = b2bUniqueGstRates[0];
+      const half = +(r / 2).toFixed(1);
+      return `GST @ ${r}% (CGST ${half}% + SGST ${half}%):`;
+    }
+    return `Total GST (CGST + SGST):`;
+  }, [b2bUniqueGstRates]);
+
+  const [b2bRefNumber, setB2bRefNumber] = useState("APL-2026-1001");
+  useEffect(() => {
+    setB2bRefNumber(`APL-${new Date().getFullYear()}-${String(Math.floor(1000 + Math.random() * 9000))}`);
+  }, []);
+
+  const addB2BItem = (prod: ApolloProduct) => {
+    const existingIdx = b2bItems.findIndex(it => it.sku === prod.sku);
+    if (existingIdx >= 0) {
+      const updated = [...b2bItems];
+      updated[existingIdx].qty += 1;
+      updated[existingIdx].amount = +(updated[existingIdx].qty * updated[existingIdx].basePrice).toFixed(2);
+      setB2bItems(updated);
+      setNotification({ open: true, message: `Increased quantity for ${prod.name} (Qty: ${updated[existingIdx].qty})`, severity: "info" });
+      return;
+    }
+    const newItem: ApolloLineItem = {
+      id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      productId: prod.id,
+      name: prod.name,
+      sku: prod.sku,
+      category: prod.category,
+      unit: prod.unit,
+      basePrice: prod.basePrice,
+      qty: 1,
+      gstRate: prod.gstRate !== undefined ? Number(prod.gstRate) : 18,
+      amount: +(prod.basePrice * 1).toFixed(2),
+    };
+    setB2bItems([...b2bItems, newItem]);
+    setNotification({ open: true, message: `Added ${prod.name} (${newItem.gstRate}% GST) to quotation`, severity: "success" });
+  };
+
+  const updateB2BItem = (idx: number, field: keyof ApolloLineItem, val: any) => {
+    const updated = [...b2bItems];
+    (updated[idx] as any)[field] = (field === "basePrice" || field === "qty" || field === "gstRate")
+      ? (parseFloat(val) || 0)
+      : val;
+    if (field === "basePrice" || field === "qty") {
+      const p = field === "basePrice" ? (parseFloat(val) || 0) : updated[idx].basePrice;
+      const q = field === "qty" ? (parseFloat(val) || 0) : updated[idx].qty;
+      updated[idx].amount = +(p * q).toFixed(2);
+    }
+    setB2bItems(updated);
+  };
+
+  const removeB2BItem = (idx: number) => {
+    setB2bItems(b2bItems.filter((_, i) => i !== idx));
+  };
+
+  const handleAddCustomB2BItem = () => {
+    if (!customB2BItem.name) return;
+    const newItem: ApolloLineItem = {
+      id: `custom-${Date.now()}`,
+      name: customB2BItem.name,
+      sku: customB2BItem.sku || `CUST-${Math.floor(100 + Math.random() * 900)}`,
+      category: customB2BItem.category,
+      unit: customB2BItem.unit,
+      basePrice: Number(customB2BItem.basePrice) || 0,
+      qty: Number(customB2BItem.qty) || 1,
+      gstRate: Number(customB2BItem.gstRate) !== undefined ? Number(customB2BItem.gstRate) : 18,
+      amount: +((Number(customB2BItem.basePrice) || 0) * (Number(customB2BItem.qty) || 1)).toFixed(2),
+    };
+    setB2bItems([...b2bItems, newItem]);
+    setCustomB2BItem({ name: "", sku: "", category: "G.I. Solar Mounting Structure", unit: "Pcs", basePrice: 0, qty: 1, gstRate: 18 });
+    setAddB2BCustomDialog(false);
+    setNotification({ open: true, message: `Added custom item "${newItem.name}" (${newItem.gstRate}% GST)`, severity: "success" });
+  };
+
+  const filteredB2BCatalog = useMemo(() => {
+    return b2bCatalog.filter((prod) => {
+      const matchCat = b2bSelectedCat === "All" || prod.category === b2bSelectedCat;
+      const matchQuery = !b2bSearchQuery.trim() ||
+        prod.name.toLowerCase().includes(b2bSearchQuery.toLowerCase()) ||
+        prod.sku.toLowerCase().includes(b2bSearchQuery.toLowerCase());
+      return matchCat && matchQuery;
+    });
+  }, [b2bCatalog, b2bSelectedCat, b2bSearchQuery]);
 
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -361,10 +581,10 @@ function QuotationBuilder() {
   }, [panelWattage, effectivePanelBrand, panelType, numberOfPanels, effectiveInverterBrand, inverterModel, editingQuotationId, editLoaded]);
 
   useEffect(() => {
-    if (!isServiceMode) {
+    if (!isServiceMode && !isB2BMode) {
       fetchComponentsFromApi(selectedSystemType);
     }
-  }, [selectedSystemType, panelWattage, effectivePanelBrand, panelType, numberOfPanels, effectiveInverterBrand, inverterModel, isServiceMode, fetchComponentsFromApi]);
+  }, [selectedSystemType, panelWattage, effectivePanelBrand, panelType, numberOfPanels, effectiveInverterBrand, inverterModel, isServiceMode, isB2BMode, fetchComponentsFromApi]);
 
   // Update inverter model when capacity changes (only if not manually edited)
   useEffect(() => {
@@ -431,7 +651,74 @@ function QuotationBuilder() {
 
   const currentDate = useMemo(() => new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" }), []);
 
-  const handlePrint = useReactToPrint({ contentRef: printRef, documentTitle: `Quotation_${customerName.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}` });
+  const printPageStyle = `
+    @page {
+      size: A4 portrait;
+      margin: 12mm 12mm 14mm 12mm;
+    }
+    @media print {
+      *, *:before, *:after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      .print-page {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        height: auto !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: #ffffff !important;
+        box-sizing: border-box !important;
+      }
+      .avoid-break {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+      }
+      thead {
+        display: table-header-group !important;
+      }
+      tfoot {
+        display: table-footer-group !important;
+      }
+      tbody {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+      }
+      tr {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      th, td {
+        word-break: break-word !important;
+      }
+      .print-table-wrapper {
+        overflow: visible !important;
+      }
+    }
+  `;
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Quotation_${customerName.replace(/\s+/g, "_") || "Solar"}_${new Date().toISOString().slice(0, 10)}`,
+    pageStyle: printPageStyle,
+  });
 
   const handleEditComponent = (index: number) => { setEditingComponent({ ...components[index] }); setEditingIndex(index); setEditComponentDialog(true); };
   const handleSaveComponentEdit = () => { if (editingComponent && editingIndex >= 0) { const updated = [...components]; updated[editingIndex] = editingComponent; setComponents(updated); } setEditComponentDialog(false); setEditingComponent(null); setEditingIndex(-1); };
@@ -440,6 +727,7 @@ function QuotationBuilder() {
 
   const handleReset = () => {
     setCustomerName(""); setCustomerPhone(""); setCustomerAddress(""); setCapacityKw(3); setPhase(1); setPanelWattage(620); setPanelBrand("Adani"); setPriceInput(180000); setInverterModel("3 KW On-Grid String"); setInverterModelEdited(false);
+    setB2bClientGstin("");
     // Clear edit mode
     if (editingQuotationId) {
       setEditingQuotationId(null);
@@ -477,7 +765,22 @@ function QuotationBuilder() {
     extraWireEnabled,
     extraWireLength,
     extraWireRate,
-  }), [selectedCompanyId, selectedSystemType, capacityKw, phase, panelWattage, panelBrand, customPanelBrand, panelType, panelWarranty, inverterBrand, customInverterBrand, inverterModel, inverterWarranty, batteryWarranty, customBatteryWarranty, priceInput, gstRate, centralSubsidy, stateSubsidy, extraStructureEnabled, extraStructureRate, extraPanelsEnabled, extraPanelCount, extraPanelPrice, extraWireEnabled, extraWireLength, extraWireRate]);
+    // Service snapshot
+    serviceItems,
+    serviceTerms,
+    serviceGst,
+    serviceProposalTitle,
+    // B2B snapshot
+    b2bItems,
+    b2bTerms,
+    b2bProposalTitle,
+    b2bStructureMake,
+    b2bClientGstin,
+    b2bDispatchLocation,
+    b2bPaymentTerms,
+    b2bDeliveryDays,
+    b2bValidDays,
+  }), [selectedCompanyId, selectedSystemType, capacityKw, phase, panelWattage, panelBrand, customPanelBrand, panelType, panelWarranty, inverterBrand, customInverterBrand, inverterModel, inverterWarranty, batteryWarranty, customBatteryWarranty, priceInput, gstRate, centralSubsidy, stateSubsidy, extraStructureEnabled, extraStructureRate, extraPanelsEnabled, extraPanelCount, extraPanelPrice, extraWireEnabled, extraWireLength, extraWireRate, serviceItems, serviceTerms, serviceGst, serviceProposalTitle, b2bItems, b2bTerms, b2bProposalTitle, b2bStructureMake, b2bClientGstin, b2bDispatchLocation, b2bPaymentTerms, b2bDeliveryDays, b2bValidDays]);
 
   const saveToDatabase = async (pdfUrl?: string, status: string = 'draft') => {
     if (!customerName) return;
@@ -485,6 +788,21 @@ function QuotationBuilder() {
       const isEditing = !!editingQuotationId;
       const url = isEditing ? `/api/quotations/${editingQuotationId}` : "/api/quotations";
       const method = isEditing ? "PUT" : "POST";
+
+      const baseAmount = isB2BMode ? b2bSubtotal : isServiceMode ? serviceSubtotal : calculations.basePrice;
+      const effectiveGstRate = isB2BMode ? 18 : isServiceMode ? serviceGst : gstRate;
+      const effectiveGstAmount = isB2BMode ? b2bGstAmount : isServiceMode ? serviceGstAmount : calculations.gstAmount;
+      const effectiveTotalAmount = isB2BMode ? b2bGrandTotal : isServiceMode ? serviceGrandTotal : calculations.totalAmount;
+      const effectiveTerms = isB2BMode ? b2bTerms : isServiceMode ? serviceTerms : terms;
+      const effectiveComponents = isB2BMode
+        ? b2bItems.map((it, idx) => ({
+          name: it.name,
+          description: `${it.sku} [${it.category}] - ${it.unit} @ ₹${it.basePrice}`,
+          quantity: `${it.qty} ${it.unit}`,
+          make: b2bStructureMake,
+          sort_order: idx,
+        }))
+        : components;
 
       const response = await fetch(url, {
         method,
@@ -494,15 +812,17 @@ function QuotationBuilder() {
           customer_phone: customerPhone,
           customer_address: customerAddress,
           system_type_name: selectedSystemType,
-          capacity_kw: actualSystemSize,
-          phase,
-          brand: effectivePanelBrand,
-          base_price: calculations.basePrice,
-          gst_rate: gstRate,
-          central_subsidy: centralSubsidy,
-          state_subsidy: stateSubsidy,
-          terms,
-          components,
+          capacity_kw: isB2BMode || isServiceMode ? null : actualSystemSize,
+          phase: isB2BMode || isServiceMode ? 1 : phase,
+          brand: isB2BMode ? b2bStructureMake : effectivePanelBrand,
+          base_price: baseAmount,
+          gst_rate: effectiveGstRate,
+          gst_amount: effectiveGstAmount,
+          total_amount: effectiveTotalAmount,
+          central_subsidy: isB2BMode || isServiceMode ? 0 : centralSubsidy,
+          state_subsidy: isB2BMode || isServiceMode ? 0 : stateSubsidy,
+          terms: effectiveTerms,
+          components: effectiveComponents,
           salesperson: activeCompany.authorizedSignatory,
           pdf_url: pdfUrl,
           status: status,
@@ -538,43 +858,101 @@ function QuotationBuilder() {
   });
 
   // Build quote data for PDF generation (reused by WhatsApp, Print, Save)
-  const buildQuoteData = (options?: { skipWhatsApp?: boolean }) => ({
-    customerInfo: {
-      name: customerName,
-      phone: customerPhone,
-      address: customerAddress || ""
-    },
-    selectedProduct: {
-      systemType: selectedSystemType,
-      capacity: actualSystemSize,
-      phase: phase,
-      panelBrand: effectivePanelBrand,
-      panelWattage: panelWattage,
-      panelType: panelType,
-      panelWarranty: panelWarranty,
-      inverterBrand: inverterModel,
-      inverterWarranty: inverterWarranty,
-      batteryWarranty: effectiveBatteryWarranty,
-    },
-    calculations: {
-      basePrice: calculations.originalBasePrice,
-      extraCosts: extraCosts.total,
-      subtotal: calculations.basePrice,
-      gstAmount: calculations.gstAmount,
-      total: calculations.totalAmount,
-      discount: 0,
-      grandTotal: calculations.totalAmount,
-      centralSubsidy,
-      stateSubsidy,
-      effectiveCost: calculations.effectiveCost
-    },
-    savings: calculations,
-    taxRate: gstRate / 100,
-    components,
-    terms,
-    companyDetails: activeCompany,
-    skipWhatsApp: options?.skipWhatsApp ?? true,
-  });
+  const buildQuoteData = (options?: { skipWhatsApp?: boolean }) => {
+    if (isB2BMode) {
+      return {
+        customerInfo: {
+          name: customerName,
+          phone: customerPhone,
+          address: customerAddress || "",
+          gstin: b2bClientGstin || "",
+        },
+        selectedProduct: {
+          systemType: "Solar Mounting Structure & BOS (B2B)",
+          capacity: 0,
+          phase: 1,
+          panelBrand: b2bStructureMake,
+          panelWattage: 0,
+          panelType: "Pre-Galv / Hot Dip 80+ Micron",
+          panelWarranty: "25 Years",
+          inverterBrand: "APOLLO Structure",
+          inverterWarranty: "Standard",
+          batteryWarranty: "N/A",
+        },
+        calculations: {
+          basePrice: b2bSubtotal,
+          extraCosts: 0,
+          subtotal: b2bSubtotal,
+          gstAmount: b2bGstAmount,
+          total: b2bGrandTotal,
+          discount: 0,
+          grandTotal: b2bGrandTotal,
+          centralSubsidy: 0,
+          stateSubsidy: 0,
+          effectiveCost: b2bGrandTotal,
+        },
+        savings: {
+          monthlyUnits: 0,
+          monthlySavings: 0,
+          annualSavings: 0,
+          twentyFiveYearSavings: 0,
+          paybackYears: 0,
+          roiPercent: 0,
+          co2Avoided: 0,
+          treesPlanted: 0,
+        },
+        taxRate: 0.18,
+        components: b2bItems.map((it, idx) => ({
+          name: it.name,
+          description: `${it.sku} [${it.category}] - ${it.unit} @ ₹${it.basePrice}`,
+          quantity: `${it.qty} ${it.unit}`,
+          make: b2bStructureMake,
+          sort_order: idx,
+        })),
+        terms: b2bTerms,
+        companyDetails: activeCompany,
+        skipWhatsApp: options?.skipWhatsApp ?? true,
+      };
+    }
+
+    return {
+      customerInfo: {
+        name: customerName,
+        phone: customerPhone,
+        address: customerAddress || ""
+      },
+      selectedProduct: {
+        systemType: selectedSystemType,
+        capacity: actualSystemSize,
+        phase: phase,
+        panelBrand: effectivePanelBrand,
+        panelWattage: panelWattage,
+        panelType: panelType,
+        panelWarranty: panelWarranty,
+        inverterBrand: inverterModel,
+        inverterWarranty: inverterWarranty,
+        batteryWarranty: effectiveBatteryWarranty,
+      },
+      calculations: {
+        basePrice: calculations.originalBasePrice,
+        extraCosts: extraCosts.total,
+        subtotal: calculations.basePrice,
+        gstAmount: calculations.gstAmount,
+        total: calculations.totalAmount,
+        discount: 0,
+        grandTotal: calculations.totalAmount,
+        centralSubsidy,
+        stateSubsidy,
+        effectiveCost: calculations.effectiveCost
+      },
+      savings: calculations,
+      taxRate: gstRate / 100,
+      components,
+      terms,
+      companyDetails: activeCompany,
+      skipWhatsApp: options?.skipWhatsApp ?? true,
+    };
+  };
 
   // Generate PDF, upload to Supabase, and save to DB (reusable)
   const generateAndSavePdf = async (status: string = 'saved'): Promise<string | null> => {
@@ -591,11 +969,14 @@ function QuotationBuilder() {
         await saveToDatabase(result.url, status);
         return result.url;
       } else {
-        throw new Error(result.message || "Failed to generate PDF");
+        // Fallback: save to DB directly even if puppeteer PDF upload is unavailable
+        await saveToDatabase(undefined, status);
+        return null;
       }
     } catch (error) {
       console.error("PDF generation error:", error);
-      throw error;
+      await saveToDatabase(undefined, status);
+      return null;
     }
   };
 
@@ -603,15 +984,15 @@ function QuotationBuilder() {
   const handlePrintWithSave = async () => {
     if (!customerName) { setNotification({ open: true, message: "Customer name is required", severity: "error" }); return; }
     setLoading(true);
-    setNotification({ open: true, message: "Generating PDF and preparing print...", severity: "info" });
+    setNotification({ open: true, message: "Saving quotation and opening print...", severity: "info" });
     try {
       await generateAndSavePdf('Printed');
       handlePrint();
-      setNotification({ open: true, message: "✅ Quotation saved and printed!", severity: "success" });
+      setNotification({ open: true, message: "✅ Quotation saved and print dialog ready!", severity: "success" });
     } catch (error) {
-      // Still allow printing even if PDF save fails
+      console.warn("Print save warning:", error);
       handlePrint();
-      setNotification({ open: true, message: "Printed (PDF save failed: " + (error as any).message + ")", severity: "warning" });
+      setNotification({ open: true, message: "Printed (Saved offline draft)", severity: "warning" });
     } finally { setLoading(false); }
   };
 
@@ -621,6 +1002,33 @@ function QuotationBuilder() {
     if (!customerPhone) { setNotification({ open: true, message: "Customer phone is required for WhatsApp", severity: "error" }); return; }
 
     setLoading(true);
+
+    if (isB2BMode) {
+      const text = `*${activeCompany.name.toUpperCase()} - B2B COMMERCIAL QUOTATION*\n\n` +
+        `*Quote Ref:* ${b2bRefNumber}\n` +
+        `*Customer:* ${customerName}\n` +
+        `*Make:* ${b2bStructureMake} (Solar Mounting Structure & BOS)\n` +
+        `*Branding:* AVAILABLE AT BEST RATE\n` +
+        `*Total Line Items:* ${b2bItems.length}\n` +
+        `*Taxable Subtotal:* ₹${formatCurrency(b2bSubtotal)}\n` +
+        `*${b2bGstLabel.replace(':', '')}:* ₹${formatCurrency(b2bGstAmount)}\n` +
+        `*Grand Total:* ₹${formatCurrency(b2bGrandTotal)}/-\n` +
+        `*Dispatch:* ${b2bDispatchLocation}\n` +
+        `*Payment:* ${b2bPaymentTerms}\n\n` +
+        `*Top Products:* \n` +
+        b2bItems.slice(0, 5).map(it => `• ${it.name} (${it.qty} ${it.unit}) @ ₹${formatCurrency(it.basePrice)} = ₹${formatCurrency(it.amount)}`).join('\n') +
+        (b2bItems.length > 5 ? `\n• ...and ${b2bItems.length - 5} more items` : '') +
+        `\n\nContact us for dispatch clearance.`;
+
+      const cleanPhone = customerPhone.replace(/[^0-9]/g, '');
+      const fullPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+      window.open(`https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`, '_blank');
+      await saveToDatabase(undefined, "WhatsApp Sent");
+      setNotification({ open: true, message: "Opened WhatsApp with B2B Quotation summary!", severity: "success" });
+      setLoading(false);
+      return;
+    }
+
     setNotification({ open: true, message: "Generating PDF and sending to WhatsApp...", severity: "info" });
 
     try {
@@ -686,9 +1094,27 @@ function QuotationBuilder() {
   return (
     <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, height: { xs: "auto", md: "100vh" }, bgcolor: "#f1f5f9", overflow: { xs: "auto", md: "hidden" } }}>
       <style jsx global>{`
+        @page {
+          size: A4 portrait;
+          margin: 12mm 12mm 14mm 12mm;
+        }
         @media print {
+          *, *:before, *:after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
           .no-print { display: none !important; }
           
+          body, html { 
+            visibility: hidden; 
+            height: auto !important; 
+            overflow: visible !important; 
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+          }
+
           /* Wrapper resets body/container layout */
           .print-wrapper { 
             position: absolute !important; 
@@ -702,34 +1128,45 @@ function QuotationBuilder() {
             overflow: visible !important;
           }
 
-          /* The actual A4 Page - Keep formatting! */
+          .print-wrapper * { visibility: visible; }
+
+          /* The actual A4 Page - In print mode, let @page handle real paper margins */
           .print-page { 
             visibility: visible !important;
-            width: 210mm !important;
+            width: 100% !important;
             max-width: 100% !important;
-            padding: 15mm !important; 
-            margin: 0 auto !important;
+            padding: 0 !important; 
+            margin: 0 !important;
             border: none !important; 
             box-shadow: none !important;
             height: auto !important;
-            min-height: 297mm !important;
+            min-height: auto !important;
+            background: white !important;
+            box-sizing: border-box !important;
           }
 
           /* Smart Page Breaks */
-          table { page-break-inside: auto; }
-          tr { page-break-inside: avoid; page-break-after: auto; }
-          thead { display: table-header-group; }
-          tfoot { display: table-footer-group; }
-          
-          .avoid-break { page-break-inside: avoid; break-inside: avoid; }
-
-          body, html { 
-            visibility: hidden; 
-            height: auto !important; 
-            overflow: visible !important; 
+          table { 
+            width: 100% !important;
+            border-collapse: collapse !important;
+            page-break-inside: auto; 
+            break-inside: auto;
           }
+          thead { display: table-header-group !important; }
+          tfoot { display: table-footer-group !important; }
+          tbody { break-inside: auto !important; page-break-inside: auto !important; }
+          tr { 
+            break-inside: avoid !important;
+            page-break-inside: avoid !important; 
+            page-break-after: auto; 
+          }
+          th, td { word-break: break-word !important; }
+          .print-table-wrapper { overflow: visible !important; }
           
-          .print-wrapper * { visibility: visible; }
+          .avoid-break { 
+            page-break-inside: avoid !important; 
+            break-inside: avoid !important; 
+          }
         }
       `}</style>
       {/* LEFT EDIT PANEL */}
@@ -743,12 +1180,12 @@ function QuotationBuilder() {
             </Typography>
             <Box sx={{ display: "flex", gap: 1 }}>
               <Link href="/service" style={{ textDecoration: 'none' }}>
-                <Button 
-                  variant="outlined" 
-                  size="small" 
-                  sx={{ 
-                    color: "white", 
-                    borderColor: "rgba(255,255,255,0.5)", 
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    color: "white",
+                    borderColor: "rgba(255,255,255,0.5)",
                     "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
                     textTransform: "none",
                     fontWeight: "bold",
@@ -760,13 +1197,13 @@ function QuotationBuilder() {
                 </Button>
               </Link>
               <Link href="/admin" style={{ textDecoration: 'none' }}>
-                <Button 
-                  variant="outlined" 
-                  size="small" 
-                  startIcon={<AdminPanelSettings fontSize="small" />} 
-                  sx={{ 
-                    color: "white", 
-                    borderColor: "rgba(255,255,255,0.5)", 
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AdminPanelSettings fontSize="small" />}
+                  sx={{
+                    color: "white",
+                    borderColor: "rgba(255,255,255,0.5)",
                     "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
                     textTransform: "none",
                     fontWeight: "bold",
@@ -832,8 +1269,317 @@ function QuotationBuilder() {
             </AccordionDetails>
           </Accordion>
 
+          {/* ===== B2B / APOLLO STRUCTURE MODE FORM ===== */}
+          {isB2BMode && (<>
+            {/* Client & Business Details */}
+            <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+                <Person sx={{ mr: 1, color: "#d97706", fontSize: 18 }} />
+                <Typography variant="subtitle2" fontWeight="bold" color="#d97706">Client & Business Details</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <TextField fullWidth label="Client / Company Name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required size="small" placeholder="e.g. Apex Solar EPC Ltd" />
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <TextField fullWidth label="Contact Phone" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} size="small" placeholder="10-digit mobile" />
+                  <TextField fullWidth label="Buyer GSTIN" value={b2bClientGstin} onChange={(e) => setB2bClientGstin(e.target.value.toUpperCase())} size="small" placeholder="09AAAAA0000A1Z5" />
+                </Box>
+                <TextField fullWidth label="Billing & Delivery Address" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} size="small" multiline rows={2} placeholder="Warehouse / Site Address" />
+                <TextField fullWidth label="Proposal Title" value={b2bProposalTitle} onChange={(e) => setB2bProposalTitle(e.target.value)} size="small" />
+
+                {/* Make Selector & Branding */}
+                <Box sx={{ p: 1.5, bgcolor: "#fffbeb", borderRadius: 1.5, border: "1px solid #fde68a" }}>
+                  <Typography variant="caption" fontWeight="bold" color="#92400e" sx={{ display: "block", mb: 0.5 }}>
+                    STRUCTURE MAKE / SPECIFICATION:
+                  </Typography>
+                  <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
+                    {(["APOLLO", "TATA", "APOLLO / TATA"] as const).map((make) => (
+                      <Chip
+                        key={make}
+                        label={make}
+                        size="small"
+                        onClick={() => setB2bStructureMake(make)}
+                        color={b2bStructureMake === make ? "warning" : "default"}
+                        variant={b2bStructureMake === make ? "filled" : "outlined"}
+                        sx={{ fontWeight: "bold" }}
+                      />
+                    ))}
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                    <Verified sx={{ fontSize: 14, color: "#16a34a" }} />
+                    <Typography variant="caption" sx={{ color: "#166534", fontWeight: 700 }}>
+                      AVAILABLE AT BEST RATE • TATA STRUCTURE AVAILABLE
+                    </Typography>
+                  </Box>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+
+            {/* Quick Product Catalog Picker */}
+            <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+                <Factory sx={{ mr: 1, color: "#d97706", fontSize: 18 }} />
+                <Typography variant="subtitle2" fontWeight="bold" color="#d97706">
+                  Add from Catalog ({filteredB2BCatalog.length} Available)
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1.5 }}>
+                {/* Search Bar & Sync Button */}
+                <Box sx={{ display: "flex", gap: 1, mb: 1.5, alignItems: "center" }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search products or SKU..."
+                    value={b2bSearchQuery}
+                    onChange={(e) => setB2bSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16 }} /></InputAdornment>,
+                    }}
+                  />
+                  <Tooltip title="Refresh latest rates from Admin">
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        fetchB2BCatalog();
+                        setNotification({ open: true, message: "Synced latest rates from admin", severity: "info" });
+                      }}
+                      sx={{
+                        bgcolor: "#fef3c7",
+                        color: "#d97706",
+                        p: 0.75,
+                        border: "1px solid #fde68a",
+                        "&:hover": { bgcolor: "#fde68a" },
+                        flexShrink: 0,
+                      }}
+                    >
+                      <RestartAlt sx={{ fontSize: 18 }} />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+
+                {/* Category Chips Filter */}
+                <Box sx={{ display: "flex", gap: 0.5, overflowX: "auto", pb: 1, mb: 1.5, "&::-webkit-scrollbar": { height: 4 } }}>
+                  {apolloCategories.map((cat) => (
+                    <Chip
+                      key={cat}
+                      label={cat}
+                      size="small"
+                      clickable
+                      onClick={() => setB2bSelectedCat(cat)}
+                      variant={b2bSelectedCat === cat ? "filled" : "outlined"}
+                      sx={{
+                        fontSize: 10,
+                        height: 24,
+                        bgcolor: b2bSelectedCat === cat ? "#d97706" : "transparent",
+                        color: b2bSelectedCat === cat ? "white" : "inherit",
+                        flexShrink: 0,
+                      }}
+                    />
+                  ))}
+                </Box>
+
+                {/* Catalog Product Cards (Scrollable) */}
+                <Box sx={{ maxHeight: 260, overflowY: "auto", display: "flex", flexDirection: "column", gap: 1, pr: 0.5 }}>
+                  {filteredB2BCatalog.map((prod) => {
+                    const inQuoteItem = b2bItems.find(it => it.sku === prod.sku);
+                    return (
+                      <Box
+                        key={prod.id}
+                        sx={{
+                          p: 1,
+                          borderRadius: 1,
+                          border: inQuoteItem ? "1.5px solid #f59e0b" : "1px solid #e2e8f0",
+                          bgcolor: inQuoteItem ? "#fffdf5" : "white",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: 1,
+                        }}
+                      >
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography variant="body2" fontWeight="bold" sx={{ fontSize: "12px", lineHeight: 1.2 }}>
+                            {prod.name}
+                          </Typography>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.25, flexWrap: "wrap" }}>
+                            <Typography variant="caption" sx={{ fontFamily: "monospace", color: "#64748b", fontSize: "10px" }}>
+                              {prod.sku}
+                            </Typography>
+                            <Chip label={prod.unit} size="small" sx={{ height: 18, fontSize: 9 }} />
+                            <Chip
+                              label={`${prod.gstRate ?? 18}% GST`}
+                              size="small"
+                              color={prod.gstRate === 5 ? "success" : "default"}
+                              variant={prod.gstRate === 5 ? "filled" : "outlined"}
+                              sx={{ height: 18, fontSize: 8.5, fontWeight: prod.gstRate === 5 ? "bold" : "normal" }}
+                            />
+                            <Typography variant="caption" fontWeight="bold" color="#b45309">
+                              {prod.basePrice > 0 ? `₹${formatCurrency(prod.basePrice)}` : "₹0 (Custom)"}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Button
+                          size="small"
+                          variant={inQuoteItem ? "contained" : "outlined"}
+                          color="warning"
+                          onClick={() => addB2BItem(prod)}
+                          startIcon={<Add sx={{ fontSize: 14 }} />}
+                          sx={{ fontSize: 11, py: 0.2, px: 1, minWidth: 0, flexShrink: 0 }}
+                        >
+                          {inQuoteItem ? `Added (${inQuoteItem.qty})` : "Add"}
+                        </Button>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+
+            {/* Active Quotation Items Table */}
+            <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+                <ListAlt sx={{ mr: 1, color: "#d97706", fontSize: 18 }} />
+                <Typography variant="subtitle2" fontWeight="bold" color="#d97706">
+                  Quotation Line Items ({b2bItems.length})
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1 }}>
+                {b2bItems.length === 0 ? (
+                  <Typography variant="caption" color="text.secondary" sx={{ p: 2, display: "block", textAlign: "center" }}>
+                    No items in quotation. Select from the catalog above or add custom item!
+                  </Typography>
+                ) : (
+                  b2bItems.map((item, idx) => (
+                    <Box key={item.id} sx={{ p: 1, mb: 1, bgcolor: idx % 2 === 0 ? "#f8fafc" : "white", borderRadius: 1, border: "1px solid #e2e8f0" }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 0.5 }}>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography variant="caption" fontWeight="bold" sx={{ color: "#0f172a" }}>
+                            {idx + 1}. {item.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ display: "block", color: "#64748b", fontFamily: "monospace", fontSize: 10 }}>
+                            {item.sku} • {item.category}
+                          </Typography>
+                        </Box>
+                        <IconButton size="small" color="error" onClick={() => removeB2BItem(idx)}>
+                          <Delete sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Box>
+                      <Box sx={{ display: "flex", gap: 0.75, alignItems: "center" }}>
+                        <TextField
+                          label="Rate (₹)"
+                          type="number"
+                          value={item.basePrice}
+                          onChange={(e) => updateB2BItem(idx, "basePrice", e.target.value)}
+                          size="small"
+                          InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                          sx={{ flex: 1.2 }}
+                        />
+                        <TextField
+                          label="Qty"
+                          type="number"
+                          value={item.qty}
+                          onChange={(e) => updateB2BItem(idx, "qty", e.target.value)}
+                          size="small"
+                          sx={{ width: 55 }}
+                        />
+                        <FormControl size="small" sx={{ width: 72 }}>
+                          <InputLabel sx={{ fontSize: "11px" }}>GST</InputLabel>
+                          <Select
+                            value={item.gstRate !== undefined ? item.gstRate : 18}
+                            label="GST"
+                            onChange={(e) => updateB2BItem(idx, "gstRate", Number(e.target.value))}
+                            sx={{ height: 40, fontSize: "11px", fontWeight: "bold", color: item.gstRate === 5 ? "#059669" : "inherit" }}
+                          >
+                            <MenuItem value={18} sx={{ fontSize: "11px" }}>18%</MenuItem>
+                            <MenuItem value={5} sx={{ fontSize: "11px", color: "#059669", fontWeight: "bold" }}>5%</MenuItem>
+                            <MenuItem value={12} sx={{ fontSize: "11px" }}>12%</MenuItem>
+                            <MenuItem value={0} sx={{ fontSize: "11px" }}>0%</MenuItem>
+                          </Select>
+                        </FormControl>
+                        <Chip label={item.unit} size="small" sx={{ height: 24, fontSize: 9 }} />
+                        <Box sx={{ textAlign: "right", minWidth: 65 }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 9 }}>Line Total</Typography>
+                          <Typography variant="body2" fontWeight="bold" color="#b45309" sx={{ fontSize: "11.5px" }}>
+                            ₹{formatCurrency(item.amount)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  ))
+                )}
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  size="small"
+                  color="warning"
+                  startIcon={<Add />}
+                  onClick={() => setAddB2BCustomDialog(true)}
+                  sx={{ mt: 1 }}
+                >
+                  Add Custom Item
+                </Button>
+              </AccordionDetails>
+            </Accordion>
+
+            {/* Commercial Terms & Dispatch */}
+            <Accordion disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+                <Settings sx={{ mr: 1, color: "#d97706", fontSize: 18 }} />
+                <Typography variant="subtitle2" fontWeight="bold" color="#d97706">Dispatch & Commercial Terms</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <TextField fullWidth label="Dispatch Location" value={b2bDispatchLocation} onChange={(e) => setB2bDispatchLocation(e.target.value)} size="small" />
+                <TextField fullWidth label="Payment Terms" value={b2bPaymentTerms} onChange={(e) => setB2bPaymentTerms(e.target.value)} size="small" />
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <TextField fullWidth label="Delivery Timeline" value={b2bDeliveryDays} onChange={(e) => setB2bDeliveryDays(e.target.value)} size="small" />
+                  <TextField label="Validity (Days)" type="number" value={b2bValidDays} onChange={(e) => setB2bValidDays(parseInt(e.target.value) || 7)} size="small" sx={{ width: 100 }} />
+                </Box>
+                <Typography variant="caption" fontWeight="bold" sx={{ mt: 0.5, color: "#92400e" }}>
+                  Detailed Terms & Conditions ({b2bTerms.length}):
+                </Typography>
+                {b2bTerms.map((t, i) => (
+                  <Box key={i} sx={{ display: "flex", alignItems: "flex-start", gap: 0.5, p: 0.5, bgcolor: i % 2 === 0 ? "#f8fafc" : "white", borderRadius: 1 }}>
+                    {editB2BTermIdx === i ? (
+                      <TextField fullWidth value={editB2BTermText} onChange={(e) => setEditB2BTermText(e.target.value)} size="small" multiline onBlur={() => { const u = [...b2bTerms]; u[i] = editB2BTermText; setB2bTerms(u); setEditB2BTermIdx(-1); }} autoFocus />
+                    ) : (
+                      <Typography variant="caption" sx={{ flex: 1, cursor: "pointer" }} onClick={() => { setEditB2BTermIdx(i); setEditB2BTermText(t); }}>
+                        {i + 1}. {t.substring(0, 75)}...
+                      </Typography>
+                    )}
+                    <IconButton size="small" onClick={() => { setEditB2BTermIdx(i); setEditB2BTermText(t); }}><Edit sx={{ fontSize: 14 }} /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => setB2bTerms(b2bTerms.filter((_, idx) => idx !== i))}><Delete sx={{ fontSize: 14 }} /></IconButton>
+                  </Box>
+                ))}
+                <Button fullWidth variant="outlined" size="small" startIcon={<Add />} onClick={() => setB2bTerms([...b2bTerms, "New commercial term"])}>Add Term</Button>
+              </AccordionDetails>
+            </Accordion>
+
+            {/* B2B Pricing Summary */}
+            <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+                <AttachMoney sx={{ mr: 1, color: "#d97706", fontSize: 18 }} />
+                <Typography variant="subtitle2" fontWeight="bold" color="#d97706">Pricing Summary</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1 }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body2" color="text.secondary">Taxable Subtotal:</Typography>
+                  <Typography variant="body2" fontWeight="bold">₹ {formatCurrency(b2bSubtotal)}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                  <Typography variant="body2" color="text.secondary">{b2bGstLabel.replace(':', '')}:</Typography>
+                  <Typography variant="body2" fontWeight="bold">₹ {formatCurrency(b2bGstAmount)}</Typography>
+                </Box>
+                <Box sx={{ p: 1.5, bgcolor: "#fef3c7", borderRadius: 1.5, textAlign: "center", border: "1px solid #fcd34d", mt: 0.5 }}>
+                  <Typography variant="caption" sx={{ color: "#92400e", textTransform: "uppercase", fontWeight: 800, letterSpacing: 0.5 }}>Grand Total (Incl. GST)</Typography>
+                  <Typography variant="h5" fontWeight="900" color="#b45309">₹ {formatCurrency(b2bGrandTotal)}</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontSize: 10, mt: 0.5 }}>
+                    {numberToWordsINR(b2bGrandTotal)}
+                  </Typography>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+          </>)}
+
           {/* ===== SERVICE MODE FORM ===== */}
-          {isServiceMode && (<>
+          {isServiceMode && !isB2BMode && (<>
             {/* Client Details */}
             <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
               <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
@@ -924,249 +1670,249 @@ function QuotationBuilder() {
           </>)}
 
           {/* ===== SOLAR MODE FORM ===== */}
-          {!isServiceMode && (<>
-          {/* Customer Details */}
-          <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
-              <Person sx={{ mr: 1, color: "#1e3a5f", fontSize: 18 }} />
-              <Typography variant="subtitle2" fontWeight="bold" color="#1e3a5f">Customer Details</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
-              <TextField fullWidth label="Customer Name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required size="small" />
-              <TextField fullWidth label="Mobile Number" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} size="small" />
-              <TextField fullWidth label="Address" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} size="small" multiline rows={2} />
-            </AccordionDetails>
-          </Accordion>
+          {!isServiceMode && !isB2BMode && (<>
+            {/* Customer Details */}
+            <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+                <Person sx={{ mr: 1, color: "#1e3a5f", fontSize: 18 }} />
+                <Typography variant="subtitle2" fontWeight="bold" color="#1e3a5f">Customer Details</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <TextField fullWidth label="Customer Name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required size="small" />
+                <TextField fullWidth label="Mobile Number" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} size="small" />
+                <TextField fullWidth label="Address" value={customerAddress} onChange={(e) => setCustomerAddress(e.target.value)} size="small" multiline rows={2} />
+              </AccordionDetails>
+            </Accordion>
 
-          {/* System Configuration */}
-          <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
-              <Settings sx={{ mr: 1, color: "#1e3a5f", fontSize: 18 }} />
-              <Typography variant="subtitle2" fontWeight="bold" color="#1e3a5f">System Configuration</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <TextField label="Capacity (KW)" type="number" value={capacityKw} onChange={(e) => setCapacityKw(e.target.value === "" ? 0 : parseFloat(e.target.value))} inputProps={{ step: 0.1, min: 0 }} size="small" sx={{ flex: 1 }} />
-                <TextField label="Wattage (Wp)" type="number" value={panelWattage} onChange={(e) => setPanelWattage(e.target.value === "" ? 0 : parseInt(e.target.value))} inputProps={{ step: 5, min: 0 }} size="small" sx={{ flex: 1 }} />
-              </Box>
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <TextField label="Panels" value={numberOfPanels} InputProps={{ readOnly: true }} size="small" sx={{ flex: 1, "& input": { fontWeight: "bold", color: "#1e3a5f" } }} />
-                <TextField label="Actual (KW)" value={actualSystemSize} InputProps={{ readOnly: true }} size="small" sx={{ flex: 1, "& input": { fontWeight: "bold", color: "#1e3a5f" } }} />
-              </Box>
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <FormControl size="small" sx={{ flex: 1 }}>
-                  <InputLabel>Brand</InputLabel>
-                  <Select value={panelBrand} label="Brand" onChange={(e) => setPanelBrand(e.target.value)}>
-                    {panelBrands.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" sx={{ flex: 1 }}>
-                  <InputLabel>Type</InputLabel>
-                  <Select value={panelType} label="Type" onChange={(e) => setPanelType(e.target.value)}>
-                    {panelTypes.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
-                  </Select>
-                </FormControl>
-              </Box>
-              {panelBrand === "Other" && <TextField fullWidth label="Custom Brand" value={customPanelBrand} onChange={(e) => setCustomPanelBrand(e.target.value)} size="small" />}
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <FormControl size="small" sx={{ flex: 1 }}>
-                  <InputLabel>Inverter</InputLabel>
-                  <Select value={inverterBrand} label="Inverter" onChange={(e) => setInverterBrand(e.target.value)}>
-                    {inverterBrands.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" sx={{ flex: 1 }}>
-                  <InputLabel>Phase</InputLabel>
-                  <Select value={phase} label="Phase" onChange={(e) => setPhase(Number(e.target.value))}>
-                    <MenuItem value={1}>1Φ</MenuItem>
-                    <MenuItem value={3}>3Φ</MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
-              {inverterBrand === "Other" && <TextField fullWidth label="Custom Inverter Brand" value={customInverterBrand} onChange={(e) => setCustomInverterBrand(e.target.value)} size="small" />}
-
-              <TextField 
-                fullWidth 
-                label="Inverter Model (Wattage/Capacity)" 
-                value={inverterModel} 
-                onChange={(e) => {
-                  setInverterModel(e.target.value);
-                  setInverterModelEdited(true); // Mark as manually edited
-                }}
-                size="small"
-                placeholder="e.g., 5 KW On-Grid String"
-              />
-
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <FormControl size="small" sx={{ flex: 1 }}>
-                  <InputLabel>Panel Warranty</InputLabel>
-                  <Select value={panelWarranty} label="Panel Warranty" onChange={(e) => setPanelWarranty(e.target.value)}>
-                    <MenuItem value="25 Years">25 Years</MenuItem>
-                    <MenuItem value="30 Years">30 Years</MenuItem>
-                    <MenuItem value="10 Years">10 Years</MenuItem>
-                    <MenuItem value="12 Years">12 Years</MenuItem>
-                    <MenuItem value="Other">Other</MenuItem>
-                  </Select>
-                </FormControl>
-                {panelWarranty === "Other" && <TextField label="Custom Panel Warranty" size="small" sx={{ flex: 1 }} onChange={(e) => setPanelWarranty(e.target.value)} />}
-
-                <FormControl size="small" sx={{ flex: 1 }}>
-                  <InputLabel>Inverter Warranty</InputLabel>
-                  <Select value={inverterWarranty} label="Inverter Warranty" onChange={(e) => setInverterWarranty(e.target.value)}>
-                    <MenuItem value="5 Years">5 Years</MenuItem>
-                    <MenuItem value="7 Years">7 Years</MenuItem>
-                    <MenuItem value="8 Years">8 Years</MenuItem>
-                    <MenuItem value="10 Years">10 Years</MenuItem>
-                    <MenuItem value="Other">Other</MenuItem>
-                  </Select>
-                </FormControl>
-                {inverterWarranty === "Other" && <TextField label="Custom Inverter Warranty" size="small" sx={{ flex: 1 }} onChange={(e) => setInverterWarranty(e.target.value)} />}
-              </Box>
-
-              {(selectedSystemType === "Hybrid" || selectedSystemType === "Off-grid") && (
+            {/* System Configuration */}
+            <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+                <Settings sx={{ mr: 1, color: "#1e3a5f", fontSize: 18 }} />
+                <Typography variant="subtitle2" fontWeight="bold" color="#1e3a5f">System Configuration</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <TextField label="Capacity (KW)" type="number" value={capacityKw} onChange={(e) => setCapacityKw(e.target.value === "" ? 0 : parseFloat(e.target.value))} inputProps={{ step: 0.1, min: 0 }} size="small" sx={{ flex: 1 }} />
+                  <TextField label="Wattage (Wp)" type="number" value={panelWattage} onChange={(e) => setPanelWattage(e.target.value === "" ? 0 : parseInt(e.target.value))} inputProps={{ step: 5, min: 0 }} size="small" sx={{ flex: 1 }} />
+                </Box>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <TextField label="Panels" value={numberOfPanels} InputProps={{ readOnly: true }} size="small" sx={{ flex: 1, "& input": { fontWeight: "bold", color: "#1e3a5f" } }} />
+                  <TextField label="Actual (KW)" value={actualSystemSize} InputProps={{ readOnly: true }} size="small" sx={{ flex: 1, "& input": { fontWeight: "bold", color: "#1e3a5f" } }} />
+                </Box>
                 <Box sx={{ display: "flex", gap: 1 }}>
                   <FormControl size="small" sx={{ flex: 1 }}>
-                    <InputLabel>Battery Warranty</InputLabel>
-                    <Select value={batteryWarranty} label="Battery Warranty" onChange={(e) => setBatteryWarranty(e.target.value)}>
-                      <MenuItem value="1 Year">1 Year</MenuItem>
-                      <MenuItem value="2 Years">2 Years</MenuItem>
-                      <MenuItem value="3 Years">3 Years</MenuItem>
-                      <MenuItem value="4 Years">4 Years</MenuItem>
+                    <InputLabel>Brand</InputLabel>
+                    <Select value={panelBrand} label="Brand" onChange={(e) => setPanelBrand(e.target.value)}>
+                      {panelBrands.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  <FormControl size="small" sx={{ flex: 1 }}>
+                    <InputLabel>Type</InputLabel>
+                    <Select value={panelType} label="Type" onChange={(e) => setPanelType(e.target.value)}>
+                      {panelTypes.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                </Box>
+                {panelBrand === "Other" && <TextField fullWidth label="Custom Brand" value={customPanelBrand} onChange={(e) => setCustomPanelBrand(e.target.value)} size="small" />}
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <FormControl size="small" sx={{ flex: 1 }}>
+                    <InputLabel>Inverter</InputLabel>
+                    <Select value={inverterBrand} label="Inverter" onChange={(e) => setInverterBrand(e.target.value)}>
+                      {inverterBrands.map((b) => <MenuItem key={b} value={b}>{b}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  <FormControl size="small" sx={{ flex: 1 }}>
+                    <InputLabel>Phase</InputLabel>
+                    <Select value={phase} label="Phase" onChange={(e) => setPhase(Number(e.target.value))}>
+                      <MenuItem value={1}>1Φ</MenuItem>
+                      <MenuItem value={3}>3Φ</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+                {inverterBrand === "Other" && <TextField fullWidth label="Custom Inverter Brand" value={customInverterBrand} onChange={(e) => setCustomInverterBrand(e.target.value)} size="small" />}
+
+                <TextField
+                  fullWidth
+                  label="Inverter Model (Wattage/Capacity)"
+                  value={inverterModel}
+                  onChange={(e) => {
+                    setInverterModel(e.target.value);
+                    setInverterModelEdited(true); // Mark as manually edited
+                  }}
+                  size="small"
+                  placeholder="e.g., 5 KW On-Grid String"
+                />
+
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <FormControl size="small" sx={{ flex: 1 }}>
+                    <InputLabel>Panel Warranty</InputLabel>
+                    <Select value={panelWarranty} label="Panel Warranty" onChange={(e) => setPanelWarranty(e.target.value)}>
+                      <MenuItem value="25 Years">25 Years</MenuItem>
+                      <MenuItem value="30 Years">30 Years</MenuItem>
+                      <MenuItem value="10 Years">10 Years</MenuItem>
+                      <MenuItem value="12 Years">12 Years</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
+                    </Select>
+                  </FormControl>
+                  {panelWarranty === "Other" && <TextField label="Custom Panel Warranty" size="small" sx={{ flex: 1 }} onChange={(e) => setPanelWarranty(e.target.value)} />}
+
+                  <FormControl size="small" sx={{ flex: 1 }}>
+                    <InputLabel>Inverter Warranty</InputLabel>
+                    <Select value={inverterWarranty} label="Inverter Warranty" onChange={(e) => setInverterWarranty(e.target.value)}>
                       <MenuItem value="5 Years">5 Years</MenuItem>
-                      <MenuItem value="6 Years">6 Years</MenuItem>
                       <MenuItem value="7 Years">7 Years</MenuItem>
                       <MenuItem value="8 Years">8 Years</MenuItem>
                       <MenuItem value="10 Years">10 Years</MenuItem>
-                      <MenuItem value="12 Years">12 Years</MenuItem>
-                      <MenuItem value="Other">Other (Custom)</MenuItem>
+                      <MenuItem value="Other">Other</MenuItem>
                     </Select>
                   </FormControl>
-                  {batteryWarranty === "Other" && (
-                    <TextField
-                      label="Custom Battery Warranty"
-                      size="small"
-                      sx={{ flex: 1 }}
-                      placeholder="e.g. 15 Years"
-                      value={customBatteryWarranty}
-                      onChange={(e) => setCustomBatteryWarranty(e.target.value)}
-                    />
+                  {inverterWarranty === "Other" && <TextField label="Custom Inverter Warranty" size="small" sx={{ flex: 1 }} onChange={(e) => setInverterWarranty(e.target.value)} />}
+                </Box>
+
+                {(selectedSystemType === "Hybrid" || selectedSystemType === "Off-grid") && (
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <FormControl size="small" sx={{ flex: 1 }}>
+                      <InputLabel>Battery Warranty</InputLabel>
+                      <Select value={batteryWarranty} label="Battery Warranty" onChange={(e) => setBatteryWarranty(e.target.value)}>
+                        <MenuItem value="1 Year">1 Year</MenuItem>
+                        <MenuItem value="2 Years">2 Years</MenuItem>
+                        <MenuItem value="3 Years">3 Years</MenuItem>
+                        <MenuItem value="4 Years">4 Years</MenuItem>
+                        <MenuItem value="5 Years">5 Years</MenuItem>
+                        <MenuItem value="6 Years">6 Years</MenuItem>
+                        <MenuItem value="7 Years">7 Years</MenuItem>
+                        <MenuItem value="8 Years">8 Years</MenuItem>
+                        <MenuItem value="10 Years">10 Years</MenuItem>
+                        <MenuItem value="12 Years">12 Years</MenuItem>
+                        <MenuItem value="Other">Other (Custom)</MenuItem>
+                      </Select>
+                    </FormControl>
+                    {batteryWarranty === "Other" && (
+                      <TextField
+                        label="Custom Battery Warranty"
+                        size="small"
+                        sx={{ flex: 1 }}
+                        placeholder="e.g. 15 Years"
+                        value={customBatteryWarranty}
+                        onChange={(e) => setCustomBatteryWarranty(e.target.value)}
+                      />
+                    )}
+                  </Box>
+                )}
+              </AccordionDetails>
+            </Accordion>
+
+            {/* Pricing */}
+            <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+                <AttachMoney sx={{ mr: 1, color: "#1e3a5f", fontSize: 18 }} />
+                <Typography variant="subtitle2" fontWeight="bold" color="#1e3a5f">Pricing</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <TextField fullWidth label="System Price (Incl. GST)" type="number" value={priceInput} onChange={(e) => setPriceInput(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" />
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <TextField label="GST Rate" type="number" value={gstRate} onChange={(e) => setGstRate(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }} size="small" sx={{ flex: 1 }} />
+                  <TextField label="GST Amount" value={`₹ ${formatCurrency(calculations.gstAmount)}`} InputProps={{ readOnly: true }} size="small" sx={{ flex: 1 }} />
+                </Box>
+                <Box sx={{ display: "flex", gap: 1 }}>
+                  <TextField label="Central Subsidy" type="number" value={centralSubsidy} onChange={(e) => setCentralSubsidy(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" sx={{ flex: 1 }} />
+                  <TextField label="State Subsidy" type="number" value={stateSubsidy} onChange={(e) => setStateSubsidy(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" sx={{ flex: 1 }} />
+                </Box>
+                <Box sx={{ p: 1.5, bgcolor: "#dbeafe", borderRadius: 1, textAlign: "center" }}>
+                  <Typography variant="caption" sx={{ color: "#1e40af", textTransform: "uppercase", fontWeight: 700 }}>Effective Cost</Typography>
+                  <Typography variant="h5" fontWeight="900" color="#16a34a">₹ {formatCurrency(calculations.effectiveCost)}</Typography>
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+
+            {/* Extra Costs (Optional) */}
+            <Accordion disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#fef3c7", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+                <AddCircle sx={{ mr: 1, color: "#d97706", fontSize: 18 }} />
+                <Typography variant="subtitle2" fontWeight="bold" color="#92400e">
+                  Extra Costs {extraCosts.total > 0 && <Chip size="small" label={`₹${formatCurrency(extraCosts.total)}`} sx={{ ml: 1, height: 18, bgcolor: "#fbbf24", color: "#78350f", fontSize: "10px" }} />}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                {/* Extra Structure Cost */}
+                <Box sx={{ p: 1.5, bgcolor: extraStructureEnabled ? "#fef3c7" : "#f8fafc", borderRadius: 1, border: "1px solid #e2e8f0" }}>
+                  <FormControlLabel
+                    control={<Checkbox size="small" checked={extraStructureEnabled} onChange={(e) => setExtraStructureEnabled(e.target.checked)} />}
+                    label={<Typography variant="body2" fontWeight="bold">Extra Structure Cost</Typography>}
+                  />
+                  {extraStructureEnabled && (
+                    <Box sx={{ display: "flex", gap: 1, mt: 1, alignItems: "center" }}>
+                      <TextField label="Rate/Watt" type="number" value={extraStructureRate} onChange={(e) => setExtraStructureRate(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" sx={{ width: 100 }} />
+                      <Typography variant="caption" color="text.secondary">× {actualSystemSize * 1000}W =</Typography>
+                      <Typography variant="body2" fontWeight="bold" color="#d97706">₹{formatCurrency(extraCosts.structureCost)}</Typography>
+                    </Box>
                   )}
                 </Box>
-              )}
-            </AccordionDetails>
-          </Accordion>
 
-          {/* Pricing */}
-          <Accordion defaultExpanded disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
-              <AttachMoney sx={{ mr: 1, color: "#1e3a5f", fontSize: 18 }} />
-              <Typography variant="subtitle2" fontWeight="bold" color="#1e3a5f">Pricing</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
-              <TextField fullWidth label="System Price (Incl. GST)" type="number" value={priceInput} onChange={(e) => setPriceInput(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" />
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <TextField label="GST Rate" type="number" value={gstRate} onChange={(e) => setGstRate(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ endAdornment: <InputAdornment position="end">%</InputAdornment> }} size="small" sx={{ flex: 1 }} />
-                <TextField label="GST Amount" value={`₹ ${formatCurrency(calculations.gstAmount)}`} InputProps={{ readOnly: true }} size="small" sx={{ flex: 1 }} />
-              </Box>
-              <Box sx={{ display: "flex", gap: 1 }}>
-                <TextField label="Central Subsidy" type="number" value={centralSubsidy} onChange={(e) => setCentralSubsidy(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" sx={{ flex: 1 }} />
-                <TextField label="State Subsidy" type="number" value={stateSubsidy} onChange={(e) => setStateSubsidy(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" sx={{ flex: 1 }} />
-              </Box>
-              <Box sx={{ p: 1.5, bgcolor: "#dbeafe", borderRadius: 1, textAlign: "center" }}>
-                <Typography variant="caption" sx={{ color: "#1e40af", textTransform: "uppercase", fontWeight: 700 }}>Effective Cost</Typography>
-                <Typography variant="h5" fontWeight="900" color="#16a34a">₹ {formatCurrency(calculations.effectiveCost)}</Typography>
-              </Box>
-            </AccordionDetails>
-          </Accordion>
-
-          {/* Extra Costs (Optional) */}
-          <Accordion disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#fef3c7", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
-              <AddCircle sx={{ mr: 1, color: "#d97706", fontSize: 18 }} />
-              <Typography variant="subtitle2" fontWeight="bold" color="#92400e">
-                Extra Costs {extraCosts.total > 0 && <Chip size="small" label={`₹${formatCurrency(extraCosts.total)}`} sx={{ ml: 1, height: 18, bgcolor: "#fbbf24", color: "#78350f", fontSize: "10px" }} />}
-              </Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
-              {/* Extra Structure Cost */}
-              <Box sx={{ p: 1.5, bgcolor: extraStructureEnabled ? "#fef3c7" : "#f8fafc", borderRadius: 1, border: "1px solid #e2e8f0" }}>
-                <FormControlLabel
-                  control={<Checkbox size="small" checked={extraStructureEnabled} onChange={(e) => setExtraStructureEnabled(e.target.checked)} />}
-                  label={<Typography variant="body2" fontWeight="bold">Extra Structure Cost</Typography>}
-                />
-                {extraStructureEnabled && (
-                  <Box sx={{ display: "flex", gap: 1, mt: 1, alignItems: "center" }}>
-                    <TextField label="Rate/Watt" type="number" value={extraStructureRate} onChange={(e) => setExtraStructureRate(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" sx={{ width: 100 }} />
-                    <Typography variant="caption" color="text.secondary">× {actualSystemSize * 1000}W =</Typography>
-                    <Typography variant="body2" fontWeight="bold" color="#d97706">₹{formatCurrency(extraCosts.structureCost)}</Typography>
-                  </Box>
-                )}
-              </Box>
-
-              {/* Extra Panels Cost */}
-              <Box sx={{ p: 1.5, bgcolor: extraPanelsEnabled ? "#fef3c7" : "#f8fafc", borderRadius: 1, border: "1px solid #e2e8f0" }}>
-                <FormControlLabel
-                  control={<Checkbox size="small" checked={extraPanelsEnabled} onChange={(e) => setExtraPanelsEnabled(e.target.checked)} />}
-                  label={<Typography variant="body2" fontWeight="bold">Extra Panels</Typography>}
-                />
-                {extraPanelsEnabled && (
-                  <Box sx={{ display: "flex", gap: 1, mt: 1, alignItems: "center", flexWrap: "wrap" }}>
-                    <TextField label="Qty" type="number" value={extraPanelCount} onChange={(e) => setExtraPanelCount(e.target.value === "" ? 0 : parseInt(e.target.value))} inputProps={{ min: 0 }} size="small" sx={{ width: 70 }} />
-                    <Typography variant="caption">×</Typography>
-                    <TextField label="Price/Panel" type="number" value={extraPanelPrice} onChange={(e) => setExtraPanelPrice(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" sx={{ width: 110 }} />
-                    <Typography variant="caption">=</Typography>
-                    <Typography variant="body2" fontWeight="bold" color="#d97706">₹{formatCurrency(extraCosts.panelsCost)}</Typography>
-                  </Box>
-                )}
-              </Box>
-
-              {/* Extra Wire Cost */}
-              <Box sx={{ p: 1.5, bgcolor: extraWireEnabled ? "#fef3c7" : "#f8fafc", borderRadius: 1, border: "1px solid #e2e8f0" }}>
-                <FormControlLabel
-                  control={<Checkbox size="small" checked={extraWireEnabled} onChange={(e) => setExtraWireEnabled(e.target.checked)} />}
-                  label={<Typography variant="body2" fontWeight="bold">Extra Wire</Typography>}
-                />
-                {extraWireEnabled && (
-                  <Box sx={{ display: "flex", gap: 1, mt: 1, alignItems: "center", flexWrap: "wrap" }}>
-                    <TextField label="Length (m)" type="number" value={extraWireLength} onChange={(e) => setExtraWireLength(e.target.value === "" ? 0 : parseFloat(e.target.value))} inputProps={{ min: 0 }} size="small" sx={{ width: 90 }} />
-                    <Typography variant="caption">×</Typography>
-                    <TextField label="Rate/m" type="number" value={extraWireRate} onChange={(e) => setExtraWireRate(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" sx={{ width: 100 }} />
-                    <Typography variant="caption">=</Typography>
-                    <Typography variant="body2" fontWeight="bold" color="#d97706">₹{formatCurrency(extraCosts.wireCost)}</Typography>
-                  </Box>
-                )}
-              </Box>
-
-              {extraCosts.total > 0 && (
-                <Box sx={{ p: 1, bgcolor: "#fbbf24", borderRadius: 1, textAlign: "center" }}>
-                  <Typography variant="caption" fontWeight="bold" color="#78350f">Total Extra: ₹{formatCurrency(extraCosts.total)}</Typography>
-                </Box>
-              )}
-            </AccordionDetails>
-          </Accordion>
-
-          {/* Components */}
-          <Accordion disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
-            <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
-              <ListAlt sx={{ mr: 1, color: "#1e3a5f", fontSize: 18 }} />
-              <Typography variant="subtitle2" fontWeight="bold" color="#1e3a5f">Components ({components.length})</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ p: 1 }}>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-                {components.map((comp, index) => (
-                  <Box key={index} sx={{ display: "flex", alignItems: "center", gap: 1, p: 0.75, bgcolor: index % 2 === 0 ? "#f8fafc" : "white", borderRadius: 1, fontSize: 12 }}>
-                    <Box sx={{ flex: 1, overflow: "hidden" }}>
-                      <Typography variant="caption" fontWeight="bold" sx={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{comp.name}</Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{comp.quantity}</Typography>
+                {/* Extra Panels Cost */}
+                <Box sx={{ p: 1.5, bgcolor: extraPanelsEnabled ? "#fef3c7" : "#f8fafc", borderRadius: 1, border: "1px solid #e2e8f0" }}>
+                  <FormControlLabel
+                    control={<Checkbox size="small" checked={extraPanelsEnabled} onChange={(e) => setExtraPanelsEnabled(e.target.checked)} />}
+                    label={<Typography variant="body2" fontWeight="bold">Extra Panels</Typography>}
+                  />
+                  {extraPanelsEnabled && (
+                    <Box sx={{ display: "flex", gap: 1, mt: 1, alignItems: "center", flexWrap: "wrap" }}>
+                      <TextField label="Qty" type="number" value={extraPanelCount} onChange={(e) => setExtraPanelCount(e.target.value === "" ? 0 : parseInt(e.target.value))} inputProps={{ min: 0 }} size="small" sx={{ width: 70 }} />
+                      <Typography variant="caption">×</Typography>
+                      <TextField label="Price/Panel" type="number" value={extraPanelPrice} onChange={(e) => setExtraPanelPrice(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" sx={{ width: 110 }} />
+                      <Typography variant="caption">=</Typography>
+                      <Typography variant="body2" fontWeight="bold" color="#d97706">₹{formatCurrency(extraCosts.panelsCost)}</Typography>
                     </Box>
-                    <IconButton size="small" onClick={() => handleEditComponent(index)}><Edit sx={{ fontSize: 16 }} /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDeleteComponent(index)}><Delete sx={{ fontSize: 16 }} /></IconButton>
+                  )}
+                </Box>
+
+                {/* Extra Wire Cost */}
+                <Box sx={{ p: 1.5, bgcolor: extraWireEnabled ? "#fef3c7" : "#f8fafc", borderRadius: 1, border: "1px solid #e2e8f0" }}>
+                  <FormControlLabel
+                    control={<Checkbox size="small" checked={extraWireEnabled} onChange={(e) => setExtraWireEnabled(e.target.checked)} />}
+                    label={<Typography variant="body2" fontWeight="bold">Extra Wire</Typography>}
+                  />
+                  {extraWireEnabled && (
+                    <Box sx={{ display: "flex", gap: 1, mt: 1, alignItems: "center", flexWrap: "wrap" }}>
+                      <TextField label="Length (m)" type="number" value={extraWireLength} onChange={(e) => setExtraWireLength(e.target.value === "" ? 0 : parseFloat(e.target.value))} inputProps={{ min: 0 }} size="small" sx={{ width: 90 }} />
+                      <Typography variant="caption">×</Typography>
+                      <TextField label="Rate/m" type="number" value={extraWireRate} onChange={(e) => setExtraWireRate(e.target.value === "" ? 0 : parseFloat(e.target.value))} InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }} size="small" sx={{ width: 100 }} />
+                      <Typography variant="caption">=</Typography>
+                      <Typography variant="body2" fontWeight="bold" color="#d97706">₹{formatCurrency(extraCosts.wireCost)}</Typography>
+                    </Box>
+                  )}
+                </Box>
+
+                {extraCosts.total > 0 && (
+                  <Box sx={{ p: 1, bgcolor: "#fbbf24", borderRadius: 1, textAlign: "center" }}>
+                    <Typography variant="caption" fontWeight="bold" color="#78350f">Total Extra: ₹{formatCurrency(extraCosts.total)}</Typography>
                   </Box>
-                ))}
-              </Box>
-              <Button fullWidth variant="outlined" size="small" startIcon={<Add />} onClick={() => setAddComponentDialog(true)} sx={{ mt: 1 }}>Add Component</Button>
-            </AccordionDetails>
-          </Accordion>
+                )}
+              </AccordionDetails>
+            </Accordion>
+
+            {/* Components */}
+            <Accordion disableGutters sx={{ boxShadow: "none", "&:before": { display: "none" } }}>
+              <AccordionSummary expandIcon={<ExpandMore />} sx={{ bgcolor: "#f8fafc", minHeight: 44, "& .MuiAccordionSummary-content": { my: 0.5 } }}>
+                <ListAlt sx={{ mr: 1, color: "#1e3a5f", fontSize: 18 }} />
+                <Typography variant="subtitle2" fontWeight="bold" color="#1e3a5f">Components ({components.length})</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 1 }}>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+                  {components.map((comp, index) => (
+                    <Box key={index} sx={{ display: "flex", alignItems: "center", gap: 1, p: 0.75, bgcolor: index % 2 === 0 ? "#f8fafc" : "white", borderRadius: 1, fontSize: 12 }}>
+                      <Box sx={{ flex: 1, overflow: "hidden" }}>
+                        <Typography variant="caption" fontWeight="bold" sx={{ display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{comp.name}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{comp.quantity}</Typography>
+                      </Box>
+                      <IconButton size="small" onClick={() => handleEditComponent(index)}><Edit sx={{ fontSize: 16 }} /></IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDeleteComponent(index)}><Delete sx={{ fontSize: 16 }} /></IconButton>
+                    </Box>
+                  ))}
+                </Box>
+                <Button fullWidth variant="outlined" size="small" startIcon={<Add />} onClick={() => setAddComponentDialog(true)} sx={{ mt: 1 }}>Add Component</Button>
+              </AccordionDetails>
+            </Accordion>
           </>)}
         </Box>
 
@@ -1193,79 +1939,277 @@ function QuotationBuilder() {
 
       {/* CENTER PREVIEW */}
       <Box className="print-wrapper" sx={{ flex: 1, width: "100%", overflow: "auto", p: { xs: 2, md: 3 }, display: "flex", justifyContent: "center", bgcolor: "#e2e8f0" }}>
-        <Box ref={printRef} className="print-page" sx={{ width: "210mm", minHeight: "297mm", p: "15mm", bgcolor: "white", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", fontFamily: "'Segoe UI', sans-serif", fontSize: "11px", color: "#1e293b", boxSizing: "border-box" }}>
+        <Box ref={printRef} className="print-page" sx={{ width: "210mm", minHeight: "297mm", p: "14mm 14mm 16mm 14mm", bgcolor: "white", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", fontFamily: "'Segoe UI', sans-serif", fontSize: "11px", color: "#1e293b", boxSizing: "border-box" }}>
 
-          {/* ===== SERVICE PREVIEW ===== */}
-          {isServiceMode ? (<>
-            {/* Service Header */}
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "4px solid #0d47a1", pb: 3, mb: 3 }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <Box component="img" src={origin ? `${origin}${activeCompany.logo}` : activeCompany.logo} alt="Logo" sx={{ maxHeight: 80 }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+          {/* ===== B2B / APOLLO STRUCTURE PREVIEW ===== */}
+          {isB2BMode ? (<>
+            {/* B2B Header */}
+            <Box className="avoid-break" sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "3.5px solid #d97706", pb: 1, mb: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.75 }}>
+                <Box component="img" src={origin ? `${origin}${activeCompany.logo}` : activeCompany.logo} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 92 : 68, maxWidth: activeCompany.id === "krishnanuja" ? 120 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
                 <Box>
-                  <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "16px" : "24px", fontWeight: 900, color: "#0d47a1", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
-                  <Typography sx={{ fontSize: "10px", fontWeight: 600, color: "#64748b", mt: 0.5, letterSpacing: 1, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
-                  <Box sx={{ fontSize: "9px", color: "#64748b", mt: 1 }}>
-                    <Typography sx={{ color: "#0d47a1", fontWeight: 700, mb: 0.25, fontSize: "9px" }}>GSTIN: {activeCompany.gstin}{(activeCompany as any).cin ? ` | CIN: ${(activeCompany as any).cin}` : ''}</Typography>
-                    <Typography sx={{ fontSize: "9px" }}><strong>Office:</strong> {activeCompany.headOffice}</Typography>
-                    {(activeCompany as any).warehouse && <Typography sx={{ fontSize: "9px" }}><strong>Warehouse:</strong> {(activeCompany as any).warehouse}</Typography>}
-                    <Typography sx={{ fontSize: "9px" }}>📞 +91 {activeCompany.phone}</Typography>
+                  <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "15px" : "20px", fontWeight: 900, color: "#b45309", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
+                  <Typography sx={{ fontSize: "9.5px", fontWeight: 600, color: "#64748b", mt: 0.25, letterSpacing: 0.8, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
+                  <Box sx={{ fontSize: "8.5px", color: "#64748b", mt: 0.35 }}>
+                    <Typography sx={{ color: "#b45309", fontWeight: 700, mb: 0.15, fontSize: "8.5px" }}>GSTIN: {activeCompany.gstin}{(activeCompany as any).cin ? ` | CIN: ${(activeCompany as any).cin}` : ''}</Typography>
+                    <Typography sx={{ fontSize: "8.5px" }}><strong>Office:</strong> {activeCompany.headOffice}</Typography>
+                    {(activeCompany as any).warehouse && <Typography sx={{ fontSize: "8.5px" }}><strong>Warehouse:</strong> {(activeCompany as any).warehouse}</Typography>}
+                    <Typography sx={{ fontSize: "8.5px" }}>📞 +91 {activeCompany.phone}</Typography>
                   </Box>
                 </Box>
               </Box>
               <Box sx={{ textAlign: "right" }}>
-                <Box sx={{ bgcolor: "#0d47a1", color: "white", px: 2, py: 0.75, fontSize: "11px", fontWeight: 900, borderRadius: 1, mb: 1, textTransform: "uppercase", letterSpacing: 1 }}>Service Proposal</Box>
-                <Typography sx={{ fontSize: "11px", color: "#64748b", fontWeight: 700 }}>Date: {currentDate}</Typography>
-                <Typography sx={{ fontSize: "10px", color: "#94a3b8" }}>Reference: {serviceRefNumber}</Typography>
+                <Box sx={{ bgcolor: "#d97706", color: "white", px: 1.5, py: 0.4, fontSize: "10px", fontWeight: 900, borderRadius: 1, mb: 0.5, textTransform: "uppercase", letterSpacing: 1 }}>
+                  Commercial Quotation
+                </Box>
+                <Typography sx={{ fontSize: "10px", color: "#64748b", fontWeight: 700 }}>Date: {currentDate}</Typography>
+                <Typography sx={{ fontSize: "9px", color: "#94a3b8" }}>Ref: {b2bRefNumber}</Typography>
+                <Typography sx={{ fontSize: "8.5px", color: "#d97706", fontWeight: 600 }}>Valid: {b2bValidDays} Days</Typography>
+              </Box>
+            </Box>
+
+            {/* Prominent Apollo Branding Banner */}
+            <Box className="avoid-break" sx={{ textAlign: "center", mb: 1, py: 0.5, px: 1.25, bgcolor: "#fffbeb", borderRadius: 1.5, border: "1.5px solid #fde68a" }}>
+              <Typography sx={{ fontSize: "12.5px", fontWeight: 900, color: "#92400e", textTransform: "uppercase", letterSpacing: 1.1 }}>
+                {b2bProposalTitle}
+              </Typography>
+              <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1, mt: 0.2, flexWrap: "wrap" }}>
+                <span style={{ backgroundColor: "#d97706", color: "white", padding: "1px 6px", borderRadius: "3px", fontSize: "8px", fontWeight: 800, letterSpacing: "0.5px" }}>
+                  MAKE: {b2bStructureMake}
+                </span>
+                <span style={{ color: "#b45309", fontSize: "9px", fontWeight: 800 }}>
+                  • TATA STRUCTURE AVAILABLE •
+                </span>
+                <span style={{ backgroundColor: "#16a34a", color: "white", padding: "1px 6px", borderRadius: "3px", fontSize: "8px", fontWeight: 800, letterSpacing: "0.5px" }}>
+                  ★ AVAILABLE AT BEST RATE ★
+                </span>
+              </Box>
+            </Box>
+
+            {/* Buyer & Commercial Terms Grid */}
+            <Box className="avoid-break" sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.25, mb: 1 }}>
+              {/* Buyer Box */}
+              <Box sx={{ bgcolor: "#f8fafc", p: 1, borderRadius: 1.5, border: "1px solid #e2e8f0" }}>
+                <Typography sx={{ fontWeight: 800, color: "#b45309", mb: 0.35, textTransform: "uppercase", fontSize: "8.5px", letterSpacing: 0.8, borderBottom: "1px solid #e2e8f0", pb: 0.2 }}>
+                  Billed To / Consignee
+                </Typography>
+                <Typography sx={{ fontWeight: 900, color: "#0f172a", fontSize: "12.5px" }}>
+                  {customerName || "________________"}
+                </Typography>
+                {customerAddress && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "9px", mt: 0.2 }}>{customerAddress}</Typography>}
+                {customerPhone && <Typography sx={{ color: "#475569", fontWeight: 600, fontSize: "9px", mt: 0.15 }}>📞 +91 {customerPhone}</Typography>}
+                {b2bClientGstin && <Typography sx={{ color: "#0f172a", fontWeight: 700, fontSize: "9px", mt: 0.15 }}>GSTIN: {b2bClientGstin}</Typography>}
+              </Box>
+
+              {/* Commercial Dispatch Box */}
+              <Box sx={{ bgcolor: "#f8fafc", p: 1, borderRadius: 1.5, border: "1px solid #e2e8f0" }}>
+                <Typography sx={{ fontWeight: 800, color: "#b45309", mb: 0.35, textTransform: "uppercase", fontSize: "8.5px", letterSpacing: 0.8, borderBottom: "1px solid #e2e8f0", pb: 0.2 }}>
+                  Dispatch & Order Conditions
+                </Typography>
+                <Typography sx={{ fontSize: "9px", color: "#475569", mb: 0.2 }}>
+                  <strong>Dispatch:</strong> {b2bDispatchLocation}
+                </Typography>
+                <Typography sx={{ fontSize: "9px", color: "#475569", mb: 0.2 }}>
+                  <strong>Payment Terms:</strong> {b2bPaymentTerms}
+                </Typography>
+                <Typography sx={{ fontSize: "9px", color: "#475569", mb: 0.2 }}>
+                  <strong>Delivery Period:</strong> {b2bDeliveryDays}
+                </Typography>
+                <Typography sx={{ fontSize: "9px", color: "#475569" }}>
+                  <strong>Price Basis:</strong> Ex-Factory / To-Pay Freight
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Commercial Schedule Table */}
+            <Box sx={{ mb: 0.35 }}>
+              <Typography sx={{ fontWeight: 900, color: "#b45309", textTransform: "uppercase", fontSize: "10px", letterSpacing: 0.8, mb: 0.35, borderBottom: "2px solid #d97706", pb: 0.2, display: "inline-block" }}>
+                Schedule of Materials & Rates
+              </Typography>
+            </Box>
+            <Box className="print-table-wrapper" sx={{ overflow: "hidden", borderRadius: 1.5, border: "1px solid #e2e8f0", mb: 1 }}>
+              <table style={{ width: "100%", fontSize: "9.5px", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#fef3c7", color: "#92400e", borderBottom: "2px solid #fde68a" }}>
+                    <th style={{ padding: "5px 4px", textAlign: "center", width: "32px" }}>S.No.</th>
+                    <th style={{ padding: "5px 4px", textAlign: "left" }}>Description of Goods</th>
+                    <th style={{ padding: "5px 4px", textAlign: "center", width: "95px" }}>SKU Code</th>
+                    <th style={{ padding: "5px 4px", textAlign: "center", width: "45px" }}>Unit</th>
+                    <th style={{ padding: "5px 4px", textAlign: "center", width: "45px" }}>Qty</th>
+                    <th style={{ padding: "5px 4px", textAlign: "right", width: "85px" }}>Rate (INR)</th>
+                    <th style={{ padding: "5px 4px", textAlign: "center", width: "48px" }}>GST</th>
+                    <th style={{ padding: "5px 4px", textAlign: "right", width: "90px" }}>Amount (INR)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {b2bItems.map((item, i) => (
+                    <tr key={i} style={{ backgroundColor: i % 2 === 1 ? "#fffdf5" : "white", borderBottom: "1px solid #e2e8f0" }}>
+                      <td style={{ padding: "4px 4px", textAlign: "center", fontWeight: 700 }}>{i + 1}</td>
+                      <td style={{ padding: "4px 4px", fontWeight: 600 }}>
+                        {item.name}
+                        <br />
+                        <span style={{ fontSize: "8px", color: "#64748b" }}>Category: {item.category}</span>
+                      </td>
+                      <td style={{ padding: "4px 4px", textAlign: "center", fontFamily: "monospace", color: "#64748b", fontSize: "8.5px" }}>
+                        {item.sku}
+                      </td>
+                      <td style={{ padding: "4px 4px", textAlign: "center" }}>{item.unit}</td>
+                      <td style={{ padding: "4px 4px", textAlign: "center", fontWeight: 800 }}>{item.qty}</td>
+                      <td style={{ padding: "4px 4px", textAlign: "right", fontWeight: 600 }}>
+                        ₹{formatCurrency(item.basePrice)}
+                      </td>
+                      <td style={{ padding: "4px 4px", textAlign: "center", color: (item.gstRate === 5 ? "#059669" : "#475569"), fontWeight: 700 }}>
+                        {item.gstRate !== undefined ? item.gstRate : 18}%
+                      </td>
+                      <td style={{ padding: "4px 4px", textAlign: "right", fontWeight: 800, color: "#92400e" }}>
+                        ₹{formatCurrency(item.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Box>
+
+            {/* Financial Summary */}
+            <Box className="avoid-break" sx={{ display: "flex", justifyContent: "flex-end", mb: 1 }}>
+              <Box sx={{ width: "52%", border: "1px solid #e2e8f0", borderRadius: 1.5, overflow: "hidden" }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", p: "3.5px 8px", borderBottom: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
+                  <Typography sx={{ fontSize: "9.5px", fontWeight: 600 }}>Taxable Value (Subtotal):</Typography>
+                  <Typography sx={{ fontSize: "9.5px", fontWeight: 700 }}>₹ {formatCurrency(b2bSubtotal)}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", p: "3.5px 8px", borderBottom: "1px solid #e2e8f0" }}>
+                  <Typography sx={{ fontSize: "9.5px", fontWeight: 600 }}>{b2bGstLabel}</Typography>
+                  <Typography sx={{ fontSize: "9.5px", fontWeight: 700 }}>₹ {formatCurrency(b2bGstAmount)}</Typography>
+                </Box>
+                <Box sx={{ display: "flex", justifyContent: "space-between", p: "5px 8px", bgcolor: "#d97706" }}>
+                  <Typography sx={{ fontSize: "11.5px", fontWeight: 900, color: "white" }}>Grand Total (INR):</Typography>
+                  <Typography sx={{ fontSize: "11.5px", fontWeight: 900, color: "white" }}>₹ {formatCurrency(b2bGrandTotal)}</Typography>
+                </Box>
+                <Box sx={{ p: "3.5px 8px", bgcolor: "#fffbeb", borderTop: "1px solid #fde68a" }}>
+                  <Typography sx={{ fontSize: "8px", color: "#92400e", fontWeight: 600, fontStyle: "italic" }}>
+                    Amount in Words: {numberToWordsINR(b2bGrandTotal)}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Commercial Terms */}
+            <Box className="avoid-break" sx={{ fontSize: "8.5px", borderTop: "1px solid #e2e8f0", pt: 0.75, mb: 1 }}>
+              <Typography sx={{ fontWeight: 900, color: "#b45309", textTransform: "uppercase", mb: 0.35, letterSpacing: 0.8, fontSize: "8.5px" }}>
+                Terms & Conditions
+              </Typography>
+              <Box component="ol" sx={{ pl: 2, color: "#475569", m: 0, "& li": { mb: 0.2, lineHeight: 1.3 } }}>
+                {b2bTerms.map((term, i) => (
+                  <li key={i} dangerouslySetInnerHTML={{ __html: term.replace(/^([^:]+):/, '<strong>$1:</strong>') }} />
+                ))}
+              </Box>
+            </Box>
+
+            {/* Bank Details Box */}
+            <Box className="avoid-break" sx={{ mb: 1, bgcolor: "#f8fafc", p: 0.8, borderRadius: 1.5, border: "1px solid #e2e8f0" }}>
+              <Typography sx={{ fontWeight: 800, color: "#b45309", mb: 0.2, textTransform: "uppercase", fontSize: "8px", letterSpacing: 0.8 }}>
+                Bank Transfer / NEFT / RTGS Details
+              </Typography>
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0.4, fontSize: "8.5px", color: "#475569" }}>
+                <Typography sx={{ fontSize: "8.5px" }}><strong>Account Name:</strong> {activeCompany.bank?.accountName || ""}</Typography>
+                <Typography sx={{ fontSize: "8.5px" }}><strong>Bank:</strong> {activeCompany.bank?.name || ""}</Typography>
+                <Typography sx={{ fontSize: "8.5px" }}><strong>Account No:</strong> {activeCompany.bank?.accountNumber || ""}</Typography>
+                <Typography sx={{ fontSize: "8.5px" }}><strong>IFSC:</strong> {activeCompany.bank?.ifsc || ""}</Typography>
+                <Typography sx={{ fontSize: "8.5px" }}><strong>Branch:</strong> {activeCompany.bank?.branch || ""}</Typography>
+                {activeCompany.bank?.upiId && (
+                  <Typography sx={{ fontSize: "8.5px" }}><strong>UPI:</strong> {activeCompany.bank.upiId}</Typography>
+                )}
+              </Box>
+            </Box>
+
+            {/* B2B Signatures */}
+            <Box className="avoid-break" sx={{ mt: 1.2, display: "flex", justifyContent: "space-between", alignItems: "flex-end", px: 1 }}>
+              <Box sx={{ textAlign: "center" }}>
+                <Typography sx={{ fontSize: "8.5px", fontWeight: 700, color: "#1e3a5f", mb: 0.2 }}>Buyer Acceptance (Seal & Sign)</Typography>
+                <Box sx={{ width: 130, height: 28 }} />
+                <Box sx={{ width: 130, height: 1, bgcolor: "#cbd5e1", mb: 0.2, mx: "auto" }} />
+                <Typography sx={{ fontSize: "7.5px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
+                <Typography sx={{ fontSize: "8px", color: "#475569", fontWeight: 600 }}>{customerName || "Customer Firm"}</Typography>
+              </Box>
+              <Box sx={{ textAlign: "right" }}>
+                <Typography sx={{ fontSize: "10.5px", fontWeight: 900, color: "#b45309", mb: 0, textDecoration: "underline", textDecorationColor: "#d97706", textUnderlineOffset: 3 }}>
+                  For {activeCompany.name}
+                </Typography>
+                <Box component="img" src={origin ? `${origin}${(activeCompany as any).signature || '/signature.png'}` : ((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 140, height: 50, objectFit: "contain", display: "block", ml: "auto", my: 0.2 }} onError={(e: any) => e.target.style.display = 'none'} />
+                <Box sx={{ width: 140, height: 1, bgcolor: "#cbd5e1", mb: 0.2, ml: "auto" }} />
+                <Typography sx={{ fontSize: "7.5px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
+              </Box>
+            </Box>
+          </>) : isServiceMode ? (<>
+            {/* Service Header */}
+            <Box className="avoid-break" sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "4px solid #0d47a1", pb: 1.5, mb: 1.5 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <Box component="img" src={origin ? `${origin}${activeCompany.logo}` : activeCompany.logo} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 95 : 72, maxWidth: activeCompany.id === "krishnanuja" ? 125 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                <Box>
+                  <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "15px" : "22px", fontWeight: 900, color: "#0d47a1", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
+                  <Typography sx={{ fontSize: "9.5px", fontWeight: 600, color: "#64748b", mt: 0.25, letterSpacing: 0.8, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
+                  <Box sx={{ fontSize: "8.5px", color: "#64748b", mt: 0.5 }}>
+                    <Typography sx={{ color: "#0d47a1", fontWeight: 700, mb: 0.2, fontSize: "8.5px" }}>GSTIN: {activeCompany.gstin}{(activeCompany as any).cin ? ` | CIN: ${(activeCompany as any).cin}` : ''}</Typography>
+                    <Typography sx={{ fontSize: "8.5px" }}><strong>Office:</strong> {activeCompany.headOffice}</Typography>
+                    {(activeCompany as any).warehouse && <Typography sx={{ fontSize: "8.5px" }}><strong>Warehouse:</strong> {(activeCompany as any).warehouse}</Typography>}
+                    <Typography sx={{ fontSize: "8.5px" }}>📞 +91 {activeCompany.phone}</Typography>
+                  </Box>
+                </Box>
+              </Box>
+              <Box sx={{ textAlign: "right" }}>
+                <Box sx={{ bgcolor: "#0d47a1", color: "white", px: 1.5, py: 0.5, fontSize: "10px", fontWeight: 900, borderRadius: 1, mb: 0.75, textTransform: "uppercase", letterSpacing: 1 }}>Service Proposal</Box>
+                <Typography sx={{ fontSize: "10px", color: "#64748b", fontWeight: 700 }}>Date: {currentDate}</Typography>
+                <Typography sx={{ fontSize: "9.5px", color: "#94a3b8" }}>Reference: {serviceRefNumber}</Typography>
               </Box>
             </Box>
 
             {/* Proposal Title */}
-            <Box sx={{ textAlign: "center", mb: 3, py: 1.5, bgcolor: "#e3f2fd", borderRadius: 2, border: "1px solid #90caf9" }}>
-              <Typography sx={{ fontSize: "16px", fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", letterSpacing: 2 }}>{serviceProposalTitle}</Typography>
+            <Box className="avoid-break" sx={{ textAlign: "center", mb: 1.5, py: 1, bgcolor: "#e3f2fd", borderRadius: 1.5, border: "1px solid #90caf9" }}>
+              <Typography sx={{ fontSize: "14px", fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", letterSpacing: 1.5 }}>{serviceProposalTitle}</Typography>
             </Box>
 
             {/* Prepared For */}
-            <Box className="avoid-break" sx={{ mb: 3, bgcolor: "#f8fafc", p: 2, borderRadius: 2, border: "1px solid #e2e8f0" }}>
-              <Typography sx={{ fontWeight: 700, color: "#0d47a1", mb: 1, textTransform: "uppercase", fontSize: "10px", letterSpacing: 1, borderBottom: "1px solid #e2e8f0", pb: 0.5 }}>Prepared For</Typography>
-              <Typography sx={{ fontWeight: 900, color: "#1e40af", fontSize: "16px" }}>{customerName || "________________"}</Typography>
-              {customerAddress && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "11px", fontStyle: "italic", mt: 0.5 }}>{customerAddress}</Typography>}
-              {customerPhone && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "11px" }}>📞 {customerPhone}</Typography>}
+            <Box className="avoid-break" sx={{ mb: 1.5, bgcolor: "#f8fafc", p: 1.2, borderRadius: 1.5, border: "1px solid #e2e8f0" }}>
+              <Typography sx={{ fontWeight: 700, color: "#0d47a1", mb: 0.5, textTransform: "uppercase", fontSize: "9px", letterSpacing: 0.8, borderBottom: "1px solid #e2e8f0", pb: 0.25 }}>Prepared For</Typography>
+              <Typography sx={{ fontWeight: 900, color: "#1e40af", fontSize: "14px" }}>{customerName || "________________"}</Typography>
+              {customerAddress && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "10px", fontStyle: "italic", mt: 0.25 }}>{customerAddress}</Typography>}
+              {customerPhone && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "10px" }}>📞 {customerPhone}</Typography>}
             </Box>
 
             {/* Commercial Details Table */}
-            <Box sx={{ mb: 1 }}>
-              <Typography sx={{ fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", fontSize: "11px", letterSpacing: 1, mb: 1, borderBottom: "2px solid #0d47a1", pb: 0.5, display: "inline-block" }}>Commercial Details</Typography>
+            <Box sx={{ mb: 0.5 }}>
+              <Typography sx={{ fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", fontSize: "10.5px", letterSpacing: 1, mb: 0.5, borderBottom: "2px solid #0d47a1", pb: 0.25, display: "inline-block" }}>Commercial Details</Typography>
             </Box>
-            <Box sx={{ overflow: "hidden", borderRadius: 2, border: "1px solid #e2e8f0", mb: 3 }}>
-              <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
+            <Box className="print-table-wrapper" sx={{ overflow: "hidden", borderRadius: 1.5, border: "1px solid #e2e8f0", mb: 1.5 }}>
+              <table style={{ width: "100%", fontSize: "10.5px", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ backgroundColor: "#e3f2fd", color: "#0d47a1", borderBottom: "2px solid #90caf9" }}>
-                    <th style={{ padding: "10px 8px", textAlign: "center", width: "40px" }}>S.No.</th>
-                    <th style={{ padding: "10px 8px", textAlign: "left" }}>Description</th>
-                    <th style={{ padding: "10px 8px", textAlign: "center", width: "80px" }}>HSN/SAC</th>
-                    <th style={{ padding: "10px 8px", textAlign: "center", width: "40px" }}>Qty</th>
-                    <th style={{ padding: "10px 8px", textAlign: "center", width: "60px" }}>Unit</th>
-                    <th style={{ padding: "10px 8px", textAlign: "right", width: "110px" }}>Rate (INR)</th>
-                    <th style={{ padding: "10px 8px", textAlign: "right", width: "110px" }}>Amount (INR)</th>
+                    <th style={{ padding: "6px 6px", textAlign: "center", width: "35px" }}>S.No.</th>
+                    <th style={{ padding: "6px 6px", textAlign: "left" }}>Description</th>
+                    <th style={{ padding: "6px 6px", textAlign: "center", width: "75px" }}>HSN/SAC</th>
+                    <th style={{ padding: "6px 6px", textAlign: "center", width: "35px" }}>Qty</th>
+                    <th style={{ padding: "6px 6px", textAlign: "center", width: "55px" }}>Unit</th>
+                    <th style={{ padding: "6px 6px", textAlign: "right", width: "100px" }}>Rate (INR)</th>
+                    <th style={{ padding: "6px 6px", textAlign: "right", width: "100px" }}>Amount (INR)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {serviceItems.map((item, i) => (
                     <tr key={i} style={{ backgroundColor: i % 2 === 1 ? "#f8fafc" : "white", borderBottom: "1px solid #e2e8f0" }}>
-                      <td style={{ padding: "10px 8px", textAlign: "center", fontWeight: 700 }}>{item.sno}</td>
-                      <td style={{ padding: "10px 8px", fontWeight: 600 }}>
+                      <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 700 }}>{item.sno}</td>
+                      <td style={{ padding: "6px 6px", fontWeight: 600 }}>
                         {item.description}
                         {item.unit === "Month" ? (
-                          <><br /><span style={{ fontSize: "9px", color: "#64748b" }}>(Rate: ₹{formatCurrency(item.rate)}/Month)</span></>
+                          <><br /><span style={{ fontSize: "8.5px", color: "#64748b" }}>(Rate: ₹{formatCurrency(item.rate)}/Month)</span></>
                         ) : item.monthlyRate ? (
-                          <><br /><span style={{ fontSize: "9px", color: "#64748b" }}>(Monthly Rate: ₹{formatCurrency(item.monthlyRate)})</span></>
+                          <><br /><span style={{ fontSize: "8.5px", color: "#64748b" }}>(Monthly Rate: ₹{formatCurrency(item.monthlyRate)})</span></>
                         ) : null}
                       </td>
-                      <td style={{ padding: "10px 8px", textAlign: "center", color: "#64748b" }}>{item.hsnSac}</td>
-                      <td style={{ padding: "10px 8px", textAlign: "center", fontWeight: 700 }}>{item.qty}</td>
-                      <td style={{ padding: "10px 8px", textAlign: "center" }}>{item.unit === "Month" ? "Per Month" : item.unit}</td>
-                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 600 }}>{item.unit === "Month" ? formatCurrency(item.rate) : formatCurrency(item.rate)}</td>
-                      <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 700 }}>{formatCurrency(item.amount)}</td>
+                      <td style={{ padding: "6px 6px", textAlign: "center", color: "#64748b" }}>{item.hsnSac}</td>
+                      <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 700 }}>{item.qty}</td>
+                      <td style={{ padding: "6px 6px", textAlign: "center" }}>{item.unit === "Month" ? "Per Month" : item.unit}</td>
+                      <td style={{ padding: "6px 6px", textAlign: "right", fontWeight: 600 }}>{item.unit === "Month" ? formatCurrency(item.rate) : formatCurrency(item.rate)}</td>
+                      <td style={{ padding: "6px 6px", textAlign: "right", fontWeight: 700 }}>{formatCurrency(item.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1273,27 +2217,27 @@ function QuotationBuilder() {
             </Box>
 
             {/* Totals */}
-            <Box className="avoid-break" sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
-              <Box sx={{ width: "50%", border: "1px solid #e2e8f0", borderRadius: 2, overflow: "hidden" }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", p: "8px 12px", borderBottom: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
-                  <Typography sx={{ fontSize: "11px", fontWeight: 600 }}>Sub Total:</Typography>
-                  <Typography sx={{ fontSize: "11px", fontWeight: 700 }}>₹ {formatCurrency(serviceSubtotal)}</Typography>
+            <Box className="avoid-break" sx={{ display: "flex", justifyContent: "flex-end", mb: 1.5 }}>
+              <Box sx={{ width: "50%", border: "1px solid #e2e8f0", borderRadius: 1.5, overflow: "hidden" }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", p: "6px 10px", borderBottom: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
+                  <Typography sx={{ fontSize: "10.5px", fontWeight: 600 }}>Sub Total:</Typography>
+                  <Typography sx={{ fontSize: "10.5px", fontWeight: 700 }}>₹ {formatCurrency(serviceSubtotal)}</Typography>
                 </Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between", p: "8px 12px", borderBottom: "1px solid #e2e8f0" }}>
-                  <Typography sx={{ fontSize: "11px", fontWeight: 600 }}>{serviceGst}% GST:</Typography>
-                  <Typography sx={{ fontSize: "11px", fontWeight: 700 }}>₹ {formatCurrency(serviceGstAmount)}</Typography>
+                <Box sx={{ display: "flex", justifyContent: "space-between", p: "6px 10px", borderBottom: "1px solid #e2e8f0" }}>
+                  <Typography sx={{ fontSize: "10.5px", fontWeight: 600 }}>{serviceGst}% GST:</Typography>
+                  <Typography sx={{ fontSize: "10.5px", fontWeight: 700 }}>₹ {formatCurrency(serviceGstAmount)}</Typography>
                 </Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between", p: "10px 12px", bgcolor: "#0d47a1" }}>
-                  <Typography sx={{ fontSize: "13px", fontWeight: 900, color: "white" }}>Grand Total:</Typography>
-                  <Typography sx={{ fontSize: "13px", fontWeight: 900, color: "white" }}>₹ {formatCurrency(serviceGrandTotal)}</Typography>
+                <Box sx={{ display: "flex", justifyContent: "space-between", p: "8px 10px", bgcolor: "#0d47a1" }}>
+                  <Typography sx={{ fontSize: "12px", fontWeight: 900, color: "white" }}>Grand Total:</Typography>
+                  <Typography sx={{ fontSize: "12px", fontWeight: 900, color: "white" }}>₹ {formatCurrency(serviceGrandTotal)}</Typography>
                 </Box>
               </Box>
             </Box>
 
             {/* Service Terms */}
-            <Box className="avoid-break" sx={{ fontSize: "10px", borderTop: "1px solid #e2e8f0", pt: 2, mb: 3 }}>
-              <Typography sx={{ fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", mb: 1, letterSpacing: 1, fontSize: "11px" }}>Terms & Conditions</Typography>
-              <Box component="ol" sx={{ pl: 2.5, color: "#475569", m: 0, "& li": { mb: 0.75, lineHeight: 1.5 } }}>
+            <Box className="avoid-break" sx={{ fontSize: "9.5px", borderTop: "1px solid #e2e8f0", pt: 1, mb: 1.5 }}>
+              <Typography sx={{ fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", mb: 0.5, letterSpacing: 0.8, fontSize: "10px" }}>Terms & Conditions</Typography>
+              <Box component="ol" sx={{ pl: 2, color: "#475569", m: 0, "& li": { mb: 0.35, lineHeight: 1.4 } }}>
                 {serviceTerms.map((term, i) => (
                   <li key={i} dangerouslySetInnerHTML={{ __html: term.replace(/^([^:]+):/, '<strong>$1:</strong>') }} />
                 ))}
@@ -1301,182 +2245,230 @@ function QuotationBuilder() {
             </Box>
 
             {/* Service Signatures */}
-            <Box sx={{ mt: 4, display: "flex", justifyContent: "space-between", alignItems: "flex-end", px: 2 }}>
+            <Box className="avoid-break" sx={{ mt: 2, display: "flex", justifyContent: "space-between", alignItems: "flex-end", px: 1 }}>
               <Box sx={{ textAlign: "center" }}>
-                <Typography sx={{ fontSize: "10px", fontWeight: 700, color: "#1e3a5f", mb: 0.5 }}>Client Acceptance</Typography>
-                <Box sx={{ width: 160, height: 60 }} />
-                <Box sx={{ width: 160, height: 1, bgcolor: "#cbd5e1", mb: 0.5, mx: "auto" }} />
-                <Typography sx={{ fontSize: "9px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Authorized Signatory</Typography>
-                <Typography sx={{ fontSize: "9px", color: "#475569", fontWeight: 600 }}>{customerName || "Client"}</Typography>
+                <Typography sx={{ fontSize: "9px", fontWeight: 700, color: "#1e3a5f", mb: 0.25 }}>Client Acceptance</Typography>
+                <Box sx={{ width: 140, height: 40 }} />
+                <Box sx={{ width: 140, height: 1, bgcolor: "#cbd5e1", mb: 0.25, mx: "auto" }} />
+                <Typography sx={{ fontSize: "8px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
+                <Typography sx={{ fontSize: "8px", color: "#475569", fontWeight: 600 }}>{customerName || "Client"}</Typography>
               </Box>
               <Box sx={{ textAlign: "right" }}>
-                <Typography sx={{ fontSize: "14px", fontWeight: 900, color: "#0d47a1", mb: 0, textDecoration: "underline", textDecorationColor: "#0d47a1", textUnderlineOffset: 4 }}>For {activeCompany.name}</Typography>
-                <Box component="img" src={origin ? `${origin}${(activeCompany as any).signature || '/signature.png'}` : ((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 200, height: 90, objectFit: "contain", display: "block", ml: "auto", my: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
-                <Box sx={{ width: 192, height: 1, bgcolor: "#cbd5e1", mb: 0.5, ml: "auto" }} />
-                <Typography sx={{ fontSize: "9px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Authorized Signatory</Typography>
+                <Typography sx={{ fontSize: "12px", fontWeight: 900, color: "#0d47a1", mb: 0, textDecoration: "underline", textDecorationColor: "#0d47a1", textUnderlineOffset: 3 }}>For {activeCompany.name}</Typography>
+                <Box component="img" src={origin ? `${origin}${(activeCompany as any).signature || '/signature.png'}` : ((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 160, height: 70, objectFit: "contain", display: "block", ml: "auto", my: 0.5 }} onError={(e: any) => e.target.style.display = 'none'} />
+                <Box sx={{ width: 160, height: 1, bgcolor: "#cbd5e1", mb: 0.25, ml: "auto" }} />
+                <Typography sx={{ fontSize: "8px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
               </Box>
             </Box>
           </>) : (<>
 
-          {/* ===== SOLAR PREVIEW ===== */}
-          {/* Header */}
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "4px solid #eab308", pb: 3, mb: 3 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Box component="img" src={origin ? `${origin}${activeCompany.logo}` : activeCompany.logo} alt="Logo" sx={{ maxHeight: 80 }} onError={(e: any) => { e.target.style.display = 'none'; }} />
-              <Box>
-                <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "18px" : "26px", fontWeight: 900, color: "#1e3a5f", letterSpacing: "-0.5px", lineHeight: 1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
-                <Typography sx={{ fontSize: "10px", fontWeight: 600, color: "#64748b", mt: 0.5, letterSpacing: 1, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
-                <Box sx={{ fontSize: "10px", color: "#64748b", mt: 1 }}>
-                  <Typography sx={{ color: "#1d4ed8", fontWeight: 700, mb: 0.25, fontSize: "10px" }}>GSTIN: {activeCompany.gstin}{(activeCompany as any).cin ? ` | CIN: ${(activeCompany as any).cin}` : ''}</Typography>
-                  <Typography sx={{ fontSize: "10px" }}><strong>HO:</strong> {activeCompany.headOffice}</Typography>
-                  {(activeCompany as any).warehouse && <Typography sx={{ fontSize: "10px" }}><strong>WH:</strong> {(activeCompany as any).warehouse}</Typography>}
-                  <Typography sx={{ fontSize: "10px" }}><strong>Contact:</strong> {activeCompany.phone}{activeCompany.email ? ` | Email: ${activeCompany.email}` : ''}</Typography>
+            {/* ===== SOLAR PREVIEW (ON-GRID, OFF-GRID, HYBRID, VFD) ===== */}
+            {/* Header */}
+            <Box className="avoid-break" sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "3.5px solid #eab308", pb: 1, mb: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.75 }}>
+                <Box component="img" src={origin ? `${origin}${activeCompany.logo}` : activeCompany.logo} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 92 : 68, maxWidth: activeCompany.id === "krishnanuja" ? 120 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                <Box>
+                  <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "15px" : "20px", fontWeight: 900, color: "#1e3a5f", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
+                  <Typography sx={{ fontSize: "9.5px", fontWeight: 600, color: "#64748b", mt: 0.2, letterSpacing: 0.8, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
+                  <Box sx={{ fontSize: "8.5px", color: "#64748b", mt: 0.35 }}>
+                    <Typography sx={{ color: "#1d4ed8", fontWeight: 700, mb: 0.15, fontSize: "8.5px" }}>GSTIN: {activeCompany.gstin}{(activeCompany as any).cin ? ` | CIN: ${(activeCompany as any).cin}` : ''}</Typography>
+                    <Typography sx={{ fontSize: "8.5px" }}><strong>HO:</strong> {activeCompany.headOffice}</Typography>
+                    {(activeCompany as any).warehouse && <Typography sx={{ fontSize: "8.5px" }}><strong>WH:</strong> {(activeCompany as any).warehouse}</Typography>}
+                    <Typography sx={{ fontSize: "8.5px" }}><strong>Contact:</strong> +91 {activeCompany.phone}{activeCompany.email ? ` | ${activeCompany.email}` : ''}</Typography>
+                  </Box>
+                </Box>
+              </Box>
+              <Box sx={{ textAlign: "right" }}>
+                <Box sx={{ bgcolor: "#eab308", color: "white", px: 1.5, py: 0.4, fontSize: "11px", fontWeight: 900, borderRadius: 1, mb: 0.5, textTransform: "uppercase", letterSpacing: 1.2 }}>Quotation</Box>
+                <Typography sx={{ fontSize: "10px", color: "#64748b", fontWeight: 700 }}>Date: {currentDate}</Typography>
+                {quoteNumber && <Typography sx={{ fontSize: "9px", color: "#94a3b8" }}>Quote No: {quoteNumber}</Typography>}
+                <Typography sx={{ fontSize: "8.5px", color: "#eab308", fontWeight: 700, textTransform: "uppercase" }}>{selectedSystemType} System</Typography>
+              </Box>
+            </Box>
+
+            {/* Customer & System Overview */}
+            <Box className="avoid-break" sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.25, mb: 1 }}>
+              <Box sx={{ bgcolor: "#f8fafc", p: 1, borderRadius: 1.5, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+                <Typography sx={{ fontWeight: 800, color: "#1e3a5f", mb: 0.35, textTransform: "uppercase", fontSize: "8.5px", letterSpacing: 0.8, borderBottom: "1px solid #e2e8f0", pb: 0.2 }}>Customer Details</Typography>
+                <Typography sx={{ fontWeight: 900, color: "#1e40af", fontSize: "12.5px", wordBreak: "break-word" }}>{customerName || "________________"}</Typography>
+                {customerAddress && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "9px", fontStyle: "italic", wordBreak: "break-word", mt: 0.2 }}>{customerAddress}</Typography>}
+                {customerPhone && <Typography sx={{ color: "#475569", fontWeight: 600, fontSize: "9px", mt: 0.15 }}>Mo No: +91 {customerPhone}</Typography>}
+              </Box>
+              <Box sx={{ bgcolor: "#f8fafc", p: 1, borderRadius: 1.5, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+                <Typography sx={{ fontWeight: 800, color: "#1e3a5f", mb: 0.35, textTransform: "uppercase", fontSize: "8.5px", letterSpacing: 0.8, borderBottom: "1px solid #e2e8f0", pb: 0.2 }}>System Specifications</Typography>
+                <Box sx={{ fontSize: "9px" }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.15 }}><span>System Size:</span> <strong>{actualSystemSize} KW ({phase === 1 ? "Single Phase" : "Three Phase"})</strong></Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.15, wordBreak: "break-word" }}><span>Modules:</span> <strong style={{ textAlign: "right", maxWidth: "65%" }}>{effectivePanelBrand} {panelWattage}Wp ({panelType})</strong></Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.15, color: "#475569" }}><span>Module Warranty:</span> <strong>{panelWarranty}</strong></Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.15, wordBreak: "break-word" }}><span>Inverter:</span> <strong style={{ textAlign: "right", maxWidth: "65%" }}>{effectiveInverterBrand} {inverterModel}</strong></Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.15, color: "#475569" }}><span>Inverter Warranty:</span> <strong>{inverterWarranty}</strong></Box>
+                  {(selectedSystemType === "Hybrid" || selectedSystemType === "Off-grid") && (
+                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.15, color: "#475569" }}><span>Battery Warranty:</span> <strong>{effectiveBatteryWarranty}</strong></Box>
+                  )}
+                  <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>System Type:</span> <strong>{selectedSystemType}</strong></Box>
                 </Box>
               </Box>
             </Box>
-            <Box sx={{ textAlign: "right" }}>
-              <Box sx={{ bgcolor: "#eab308", color: "white", px: 2, py: 0.75, fontSize: "16px", fontWeight: 900, borderRadius: 1, mb: 1, textTransform: "uppercase", letterSpacing: 2 }}>Quotation</Box>
-              <Typography sx={{ fontSize: "12px", color: "#64748b", fontWeight: 700 }}>Date: {currentDate}</Typography>
-              {quoteNumber && <Typography sx={{ fontSize: "10px", color: "#94a3b8" }}>Quote No: {quoteNumber}</Typography>}
-            </Box>
-          </Box>
 
-          {/* Customer & System Overview */}
-          <Box className="avoid-break" sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3, mb: 3 }}>
-            <Box sx={{ bgcolor: "#f8fafc", p: 2, borderRadius: 2, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-              <Typography sx={{ fontWeight: 700, color: "#1e3a5f", mb: 1, textTransform: "uppercase", fontSize: "10px", letterSpacing: 1, borderBottom: "1px solid #e2e8f0", pb: 0.5 }}>Customer Details</Typography>
-              <Typography sx={{ fontWeight: 900, color: "#1e40af", fontSize: "16px", wordBreak: "break-word" }}>{customerName || "________________"}</Typography>
-              {customerAddress && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "11px", fontStyle: "italic", wordBreak: "break-word" }}>{customerAddress}</Typography>}
-              {customerPhone && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "11px" }}>Mo No: {customerPhone}</Typography>}
+            {/* Components Table */}
+            <Box sx={{ mb: 0.35 }}>
+              <Typography sx={{ fontWeight: 900, color: "#1e3a5f", textTransform: "uppercase", fontSize: "10px", letterSpacing: 0.8, mb: 0.35, borderBottom: "2px solid #eab308", pb: 0.2, display: "inline-block" }}>
+                Technical Bill of Materials (BOM)
+              </Typography>
             </Box>
-            <Box sx={{ bgcolor: "#f8fafc", p: 2, borderRadius: 2, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-              <Typography sx={{ fontWeight: 700, color: "#1e3a5f", mb: 1, textTransform: "uppercase", fontSize: "10px", letterSpacing: 1, borderBottom: "1px solid #e2e8f0", pb: 0.5 }}>System Overview</Typography>
-              <Box sx={{ fontSize: "11px" }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.25 }}><span>System Size:</span> <strong>{actualSystemSize} KW ({phase === 1 ? "Single Phase" : "Three Phase"})</strong></Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.25, wordBreak: "break-word" }}><span>Modules:</span> <strong style={{ textAlign: "right", maxWidth: "60%" }}>{effectivePanelBrand} {panelWattage}Wp ({panelType})</strong></Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.25, color: "#475569" }}><span>Module Warranty:</span> <strong>{panelWarranty}</strong></Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.25, wordBreak: "break-word" }}><span>Inverter:</span> <strong style={{ textAlign: "right", maxWidth: "60%" }}>{effectiveInverterBrand} {inverterModel}</strong></Box>
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.25, color: "#475569" }}><span>Inverter Warranty:</span> <strong>{inverterWarranty}</strong></Box>
-                {(selectedSystemType === "Hybrid" || selectedSystemType === "Off-grid") && (
-                  <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.25, color: "#475569" }}><span>Battery Warranty:</span> <strong>{effectiveBatteryWarranty}</strong></Box>
-                )}
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}><span>Type:</span> <strong>{selectedSystemType}</strong></Box>
-              </Box>
-            </Box>
-          </Box>
-
-          {/* Components Table */}
-          <Box sx={{ overflow: "hidden", borderRadius: 2, border: "1px solid #e2e8f0", mb: 3 }}>
-            <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ backgroundColor: "#f1f5f9", color: "#1e3a5f", borderBottom: "1px solid #e2e8f0" }}>
-                  <th style={{ padding: "10px 6px", textAlign: "center", width: "30px" }}>S.N</th>
-                  <th style={{ padding: "10px 6px", textAlign: "left", width: "25%" }}>Components</th>
-                  <th style={{ padding: "10px 6px", textAlign: "left" }}>Description</th>
-                  <th style={{ padding: "10px 6px", textAlign: "center", width: "60px" }}>Qty</th>
-                  <th style={{ padding: "10px 6px", textAlign: "center", width: "80px" }}>Make</th>
-                </tr>
-              </thead>
-              <tbody>
-                {components.map((comp, index) => (
-                  <tr key={index} style={{ backgroundColor: index % 2 === 1 ? "#f8fafc80" : "white", borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700 }}>{index + 1}</td>
-                    <td style={{ padding: "8px 6px", fontWeight: 700, color: "#1e293b" }}>{comp.name}</td>
-                    <td style={{ padding: "8px 6px", color: index < 2 ? "#1e293b" : "#475569" }}>{comp.description}</td>
-                    <td style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700 }}>{comp.quantity}</td>
-                    <td style={{ padding: "8px 6px", textAlign: "center", fontWeight: 700, color: "#1e40af" }}>{comp.make}</td>
+            <Box className="print-table-wrapper" sx={{ overflow: "hidden", borderRadius: 1.5, border: "1px solid #e2e8f0", mb: 1 }}>
+              <table style={{ width: "100%", fontSize: "9px", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#f1f5f9", color: "#1e3a5f", borderBottom: "1.5px solid #cbd5e1" }}>
+                    <th style={{ padding: "4px 4px", textAlign: "center", width: "26px" }}>S.N</th>
+                    <th style={{ padding: "4px 4px", textAlign: "left", width: "25%" }}>Components</th>
+                    <th style={{ padding: "4px 4px", textAlign: "left" }}>Description</th>
+                    <th style={{ padding: "4px 4px", textAlign: "center", width: "50px" }}>Qty</th>
+                    <th style={{ padding: "4px 4px", textAlign: "center", width: "75px" }}>Make</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </Box>
+                </thead>
+                <tbody>
+                  {components.map((comp, index) => (
+                    <tr key={index} style={{ backgroundColor: index % 2 === 1 ? "#f8fafc80" : "white", borderBottom: "1px solid #e2e8f0" }}>
+                      <td style={{ padding: "3.5px 4px", textAlign: "center", fontWeight: 700 }}>{index + 1}</td>
+                      <td style={{ padding: "3.5px 4px", fontWeight: 700, color: "#1e293b" }}>{comp.name}</td>
+                      <td style={{ padding: "3.5px 4px", color: index < 2 ? "#1e293b" : "#475569" }}>{comp.description}</td>
+                      <td style={{ padding: "3.5px 4px", textAlign: "center", fontWeight: 700 }}>{comp.quantity}</td>
+                      <td style={{ padding: "3.5px 4px", textAlign: "center", fontWeight: 700, color: "#1e40af" }}>{comp.make}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Box>
 
-
-
-          {/* Pricing & Subsidy */}
-          <Box className="avoid-break" sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 3, mb: 3 }}>
-            <Box>
-              {calculations.totalSubsidy > 0 && (
-                <Box sx={{ bgcolor: "#f0fdf4", border: "1px solid #bbf7d0", p: 2, borderRadius: 2, mb: 2 }}>
-                  <Typography sx={{ fontWeight: 900, color: "#166534", fontSize: "10px", textTransform: "uppercase", mb: 1, letterSpacing: 1 }}>PM Surya Ghar Subsidy</Typography>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "12px", py: 0.5, borderBottom: "1px solid #bbf7d0" }}><span>Central Subsidy:</span><strong>₹ {formatCurrency(centralSubsidy)}/-</strong></Box>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "12px", py: 0.5, borderBottom: "1px solid #bbf7d0" }}><span>State Subsidy:</span><strong>₹ {formatCurrency(stateSubsidy)}/-</strong></Box>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "14px", pt: 1.5, fontWeight: 900, color: "#166534", textTransform: "uppercase" }}><span>Total Benefit:</span><span style={{ fontSize: "18px" }}>₹ {formatCurrency(calculations.totalSubsidy)}/-</span></Box>
+            {/* Financials, Savings & Bank Details Grid */}
+            <Box className="avoid-break" sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.25, mb: 1 }}>
+              {/* Left Column: Generation, Savings & Bank Details */}
+              <Box sx={{ bgcolor: "#f8fafc", p: 1, borderRadius: 1.5, border: "1px solid #e2e8f0", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                {/* Generation & Savings metrics */}
+                <Box sx={{ mb: 0.5 }}>
+                  <Typography sx={{ fontWeight: 800, color: "#1e3a5f", fontSize: "9px", textTransform: "uppercase", mb: 0.35, letterSpacing: 0.8, borderBottom: "1px solid #e2e8f0", pb: 0.2 }}>
+                    Energy Generation & Financial Returns
+                  </Typography>
+                  <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0.5, textAlign: "center" }}>
+                    <Box sx={{ p: 0.4, bgcolor: "white", borderRadius: 1, border: "1px solid #e2e8f0" }}>
+                      <Typography sx={{ fontSize: "7.5px", color: "#64748b", textTransform: "uppercase" }}>Generation</Typography>
+                      <Typography sx={{ fontSize: "9.5px", fontWeight: 800, color: "#0f172a" }}>{calculations.annualUnits} U/Yr</Typography>
+                    </Box>
+                    <Box sx={{ p: 0.4, bgcolor: "white", borderRadius: 1, border: "1px solid #e2e8f0" }}>
+                      <Typography sx={{ fontSize: "7.5px", color: "#64748b", textTransform: "uppercase" }}>Annual Savings</Typography>
+                      <Typography sx={{ fontSize: "9.5px", fontWeight: 800, color: "#16a34a" }}>₹ {formatCurrency(calculations.annualSavings)}</Typography>
+                    </Box>
+                    <Box sx={{ p: 0.4, bgcolor: "white", borderRadius: 1, border: "1px solid #e2e8f0" }}>
+                      <Typography sx={{ fontSize: "7.5px", color: "#64748b", textTransform: "uppercase" }}>Payback (ROI)</Typography>
+                      <Typography sx={{ fontSize: "9.5px", fontWeight: 800, color: "#ea580c" }}>{calculations.roiYears} Yrs</Typography>
+                    </Box>
+                  </Box>
                 </Box>
-              )}
-              <Box sx={{ bgcolor: "#eff6ff", border: "1px solid #bfdbfe", p: 2, borderRadius: 2, fontSize: "10px" }}>
-                <Typography sx={{ fontWeight: 900, color: "#1e3a5f", textTransform: "uppercase", mb: 1, borderBottom: "1px solid #bfdbfe", pb: 0.5 }}>Bank Details</Typography>
-                <p style={{ margin: "4px 0" }}><strong>A/c Name:</strong> {activeCompany.bank.accountName}</p>
-                {activeCompany.bank.accountNumber && <p style={{ margin: "4px 0" }}><strong>A/c No:</strong> {activeCompany.bank.accountNumber} | <strong>IFSC:</strong> {activeCompany.bank.ifsc}</p>}
-                {activeCompany.bank.name && <p style={{ margin: "4px 0" }}><strong>Bank:</strong> {activeCompany.bank.name}{activeCompany.bank.branch ? `, ${activeCompany.bank.branch}` : ''}</p>}
-                <Box sx={{ mt: 1.5, pt: 1, borderTop: "1px dashed #cbd5e1", textAlign: "center" }}>
-                  <Typography sx={{ fontWeight: 700, color: "#1e3a5f", fontSize: "10px", mb: 0.5 }}>Scan to Pay</Typography>
-                  <a href={`upi://pay?pa=${activeCompany.bank.upiId}&pn=${encodeURIComponent(activeCompany.name)}&am=${calculations.totalAmount}&cu=INR`} style={{ textDecoration: "none" }}>
-                    <Box component="img" src={origin ? `${origin}/payment.png` : "/payment.png"} alt="Payment QR" sx={{ width: 100, height: 100, objectFit: "contain", mixBlendMode: "multiply", mx: "auto", display: "block", cursor: "pointer" }} onError={(e: any) => e.target.style.display = 'none'} />
-                  </a>
-                  <Typography sx={{ fontSize: "8px", color: "#64748b", mt: 0.25 }}>Click or Scan with UPI App</Typography>
+
+                {/* Bank Account & Payment details */}
+                <Box sx={{ bgcolor: "#eff6ff", p: 0.6, borderRadius: 1, border: "1px solid #bfdbfe", display: "flex", alignItems: "center", gap: 1 }}>
+                  <Box sx={{ flex: 1, fontSize: "8.5px", color: "#334155" }}>
+                    <Typography sx={{ fontWeight: 800, color: "#1e3a5f", textTransform: "uppercase", fontSize: "8px", mb: 0.15 }}>Bank & Payment Details</Typography>
+                    <Typography sx={{ fontSize: "8px" }}><strong>A/c Name:</strong> {activeCompany.bank?.accountName || ""}</Typography>
+                    <Typography sx={{ fontSize: "8px" }}><strong>Bank:</strong> {activeCompany.bank?.name || ""}{activeCompany.bank?.branch ? `, ${activeCompany.bank?.branch}` : ''}</Typography>
+                    <Typography sx={{ fontSize: "8px" }}><strong>A/c No:</strong> {activeCompany.bank?.accountNumber || ""} | <strong>IFSC:</strong> {activeCompany.bank?.ifsc || ""}</Typography>
+                    {activeCompany.bank?.upiId && (
+                      <Typography sx={{ fontSize: "8px", color: "#1d4ed8" }}><strong>UPI:</strong> {activeCompany.bank.upiId}</Typography>
+                    )}
+                  </Box>
+                  {activeCompany.bank?.upiId && (
+                    <Box sx={{ textAlign: "center", flexShrink: 0 }}>
+                      <a href={`upi://pay?pa=${activeCompany.bank.upiId}&pn=${encodeURIComponent(activeCompany.name)}&am=${calculations.totalAmount}&cu=INR`} style={{ textDecoration: "none" }}>
+                        <Box component="img" src={origin ? `${origin}/payment.png` : "/payment.png"} alt="Payment QR" sx={{ width: 42, height: 42, objectFit: "contain", mixBlendMode: "multiply", display: "block" }} onError={(e: any) => e.target.style.display = 'none'} />
+                      </a>
+                      <Typography sx={{ fontSize: "7px", color: "#64748b", mt: 0.1 }}>Scan UPI</Typography>
+                    </Box>
+                  )}
                 </Box>
               </Box>
-            </Box>
-            <Box sx={{ bgcolor: "#f8fafc", p: 2.5, borderRadius: 2, border: "1px solid #bfdbfe" }}>
-              <Typography sx={{ fontWeight: 700, color: "#1e3a5f", fontSize: "10px", textTransform: "uppercase", mb: 1.5, letterSpacing: 1, borderBottom: "1px solid #bfdbfe", pb: 0.5 }}>Investment Summary</Typography>
-              <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "11px", py: 0.3, color: "#64748b" }}><span>Base Price:</span><span>₹ {formatCurrency(calculations.originalBasePrice)}</span></Box>
-              {extraCosts.structureCost > 0 && <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "11px", py: 0.3, color: "#d97706" }}><span>+ Extra Structure:</span><span>₹ {formatCurrency(extraCosts.structureCost)}</span></Box>}
-              {extraCosts.panelsCost > 0 && <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "11px", py: 0.3, color: "#d97706" }}><span>+ Extra Panels ({extraPanelCount}):</span><span>₹ {formatCurrency(extraCosts.panelsCost)}</span></Box>}
-              {extraCosts.wireCost > 0 && <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "11px", py: 0.3, color: "#d97706" }}><span>+ Extra Wire ({extraWireLength}m):</span><span>₹ {formatCurrency(extraCosts.wireCost)}</span></Box>}
-              <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "11px", py: 0.3, color: "#64748b", borderBottom: "1px solid #e2e8f0", pb: 0.75, mb: 0.5 }}><span>GST (@ {gstRate}%):</span><span>₹ {formatCurrency(calculations.gstAmount)}</span></Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: 900, color: "#1e3a5f", pt: 1 }}><span style={{ fontSize: "11px", textTransform: "uppercase" }}>Total Amount:</span><span style={{ color: "#1e40af" }}>₹ {formatCurrency(calculations.totalAmount)}</span></Box>
-              <Box sx={{ mt: 2, p: 1.5, bgcolor: "#dbeafe", border: "1px solid #93c5fd", borderRadius: 1.5, textAlign: "center" }}>
-                <Typography sx={{ fontSize: "9px", color: "#1e40af", textTransform: "uppercase", fontWeight: 900, letterSpacing: 1, mb: 0.5 }}>{calculations.totalSubsidy > 0 ? "Effective Cost After Subsidy" : "Effective Cost"}</Typography>
-                <Typography sx={{ fontSize: "24px", fontWeight: 900, color: "#16a34a", letterSpacing: "-1px" }}>₹ {formatCurrency(calculations.effectiveCost)}*</Typography>
+
+              {/* Right Column: Investment Summary & Subsidy Benefit */}
+              <Box sx={{ bgcolor: "#f8fafc", p: 1, borderRadius: 1.5, border: "1px solid #bfdbfe", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <Box>
+                  <Typography sx={{ fontWeight: 800, color: "#1e3a5f", fontSize: "9px", textTransform: "uppercase", mb: 0.5, letterSpacing: 0.8, borderBottom: "1px solid #bfdbfe", pb: 0.2 }}>
+                    Investment & Pricing Summary
+                  </Typography>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "9.5px", py: 0.15, color: "#475569" }}>
+                    <span>Base Price:</span><span>₹ {formatCurrency(calculations.originalBasePrice)}</span>
+                  </Box>
+                  {extraCosts.structureCost > 0 && (
+                    <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "9.5px", py: 0.15, color: "#d97706" }}>
+                      <span>+ Extra Structure:</span><span>₹ {formatCurrency(extraCosts.structureCost)}</span>
+                    </Box>
+                  )}
+                  {extraCosts.panelsCost > 0 && (
+                    <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "9.5px", py: 0.15, color: "#d97706" }}>
+                      <span>+ Extra Panels ({extraPanelCount}):</span><span>₹ {formatCurrency(extraCosts.panelsCost)}</span>
+                    </Box>
+                  )}
+                  {extraCosts.wireCost > 0 && (
+                    <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "9.5px", py: 0.15, color: "#d97706" }}>
+                      <span>+ Extra Wire ({extraWireLength}m):</span><span>₹ {formatCurrency(extraCosts.wireCost)}</span>
+                    </Box>
+                  )}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "9.5px", py: 0.15, color: "#475569", borderBottom: "1px solid #e2e8f0", pb: 0.35, mb: 0.25 }}>
+                    <span>GST (@ {gstRate}%):</span><span>₹ {formatCurrency(calculations.gstAmount)}</span>
+                  </Box>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "12px", fontWeight: 900, color: "#1e3a5f", pt: 0.25 }}>
+                    <span style={{ fontSize: "9.5px", textTransform: "uppercase" }}>Total Amount:</span>
+                    <span style={{ color: "#1e40af" }}>₹ {formatCurrency(calculations.totalAmount)}</span>
+                  </Box>
+                </Box>
+
+                {calculations.totalSubsidy > 0 ? (
+                  <Box sx={{ mt: 0.75, p: 0.75, bgcolor: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 1 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "8.5px", color: "#166534" }}>
+                      <span>Central: <strong>₹ {formatCurrency(centralSubsidy)}</strong></span>
+                      <span>State: <strong>₹ {formatCurrency(stateSubsidy)}</strong></span>
+                    </Box>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", pt: 0.35, borderTop: "1px dashed #bbf7d0", mt: 0.35 }}>
+                      <Typography sx={{ fontSize: "8.5px", color: "#166534", textTransform: "uppercase", fontWeight: 900 }}>
+                        Effective Cost:
+                      </Typography>
+                      <Typography sx={{ fontSize: "15px", fontWeight: 900, color: "#16a34a" }}>
+                        ₹ {formatCurrency(calculations.effectiveCost)}*
+                      </Typography>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box sx={{ mt: 0.75, p: 0.6, bgcolor: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 1, textAlign: "center" }}>
+                    <Typography sx={{ fontSize: "8px", color: "#1e40af", textTransform: "uppercase", fontWeight: 800 }}>Net Investment Payable</Typography>
+                    <Typography sx={{ fontSize: "13px", fontWeight: 900, color: "#1e40af" }}>₹ {formatCurrency(calculations.totalAmount)}</Typography>
+                  </Box>
+                )}
               </Box>
             </Box>
-          </Box>
 
-
-          {/* Savings Table */}
-          <Box sx={{ overflow: "hidden", mb: 3 }}>
-            <Typography sx={{ fontWeight: 700, color: "#1e3a5f", fontSize: "10px", textTransform: "uppercase", mb: 1, letterSpacing: 1, borderBottom: "1px solid #e2e8f0", pb: 0.5 }}>Breakdown of Savings & Financials</Typography>
-            <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-              <thead>
-                <tr style={{ backgroundColor: "#f8fafc", color: "#64748b" }}>
-                  <th style={{ padding: "8px", textAlign: "center", borderBottom: "1px solid #e2e8f0", width: "40px" }}>S.No</th>
-                  <th style={{ padding: "8px", textAlign: "left", borderBottom: "1px solid #e2e8f0" }}>Content</th>
-                  <th style={{ padding: "8px", textAlign: "right", borderBottom: "1px solid #e2e8f0" }}>Amount / Details</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr><td style={{ padding: "8px", textAlign: "center", borderBottom: "1px solid #e2e8f0" }}>1</td><td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0" }}>Proposed Solar Plant Size</td><td style={{ padding: "8px", textAlign: "right", fontWeight: "bold", borderBottom: "1px solid #e2e8f0" }}>{actualSystemSize} KW</td></tr>
-                <tr><td style={{ padding: "8px", textAlign: "center", borderBottom: "1px solid #e2e8f0" }}>2</td><td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0" }}>Annual Units Generation (approx.)</td><td style={{ padding: "8px", textAlign: "right", fontWeight: "bold", borderBottom: "1px solid #e2e8f0" }}>{calculations.annualUnits} Units</td></tr>
-                <tr><td style={{ padding: "8px", textAlign: "center", borderBottom: "1px solid #e2e8f0" }}>3</td><td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0" }}>Average Grid Electricity Rate</td><td style={{ padding: "8px", textAlign: "right", fontWeight: "bold", borderBottom: "1px solid #e2e8f0" }}>Rs. 6.5 / Unit</td></tr>
-                <tr><td style={{ padding: "8px", textAlign: "center", borderBottom: "1px solid #e2e8f0" }}>4</td><td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0" }}><strong>Annual Savings</strong></td><td style={{ padding: "8px", textAlign: "right", fontWeight: "bold", color: "#16a34a", borderBottom: "1px solid #e2e8f0" }}>Rs. {formatCurrency(calculations.annualSavings)}</td></tr>
-                <tr style={{ backgroundColor: "#f0fdf4" }}><td style={{ padding: "8px", textAlign: "center", borderBottom: "1px solid #e2e8f0" }}>5</td><td style={{ padding: "8px", borderBottom: "1px solid #e2e8f0" }}><strong>Subsidy Applicable</strong> (Central + State)</td><td style={{ padding: "8px", textAlign: "right", fontWeight: "bold", color: "#166534", borderBottom: "1px solid #e2e8f0" }}>Total: ₹ {formatCurrency(calculations.totalSubsidy)}</td></tr>
-                <tr><td style={{ padding: "8px", textAlign: "center" }}>6</td><td style={{ padding: "8px" }}><strong>Return on Investment (ROI)</strong></td><td style={{ padding: "8px", textAlign: "right", fontWeight: "bold", color: "#ea580c" }}>{calculations.roiYears} Years</td></tr>
-              </tbody>
-            </table>
-          </Box>
-
-          {/* Terms */}
-          <Box className="avoid-break" sx={{ fontSize: "10px", borderTop: "1px solid #e2e8f0", pt: 2 }}>
-            <Typography sx={{ fontWeight: 900, color: "#1e293b", textTransform: "uppercase", mb: 1, letterSpacing: 1 }}>Terms and Conditions</Typography>
-            <Box component="ul" sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 32px", pl: 2, color: "#64748b", m: 0 }}>
-              {terms.map((term, i) => <li key={i} dangerouslySetInnerHTML={{ __html: term.replace(/^([^:]+):/, '<strong>$1:</strong>') }} />)}
+            {/* Terms and Conditions */}
+            <Box className="avoid-break" sx={{ fontSize: "8px", borderTop: "1px solid #e2e8f0", pt: 0.75, mb: 1 }}>
+              <Typography sx={{ fontWeight: 900, color: "#1e293b", textTransform: "uppercase", mb: 0.35, letterSpacing: 0.8, fontSize: "8.5px" }}>Terms and Conditions</Typography>
+              <Box component="ul" sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5px 20px", pl: 2, color: "#64748b", m: 0 }}>
+                {terms.map((term, i) => <li key={i} style={{ lineHeight: 1.3 }} dangerouslySetInnerHTML={{ __html: term.replace(/^([^:]+):/, '<strong>$1:</strong>') }} />)}
+              </Box>
             </Box>
-          </Box>
 
-          {/* Signature */}
-          <Box sx={{ mt: 6, display: "flex", justifyContent: "space-between", alignItems: "flex-end", px: 2 }}>
-            <Box sx={{ textAlign: "center" }}>
-              <Box sx={{ width: 160, height: 1, bgcolor: "#cbd5e1", mb: 0.5, mx: "auto" }} />
-              <Typography sx={{ fontSize: "9px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Customer Signature</Typography>
+            {/* Signatures */}
+            <Box className="avoid-break" sx={{ mt: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-end", px: 1 }}>
+              <Box sx={{ textAlign: "center" }}>
+                <Typography sx={{ fontSize: "8.5px", fontWeight: 700, color: "#1e3a5f", mb: 0.2 }}>Customer Acceptance</Typography>
+                <Box sx={{ width: 130, height: 28 }} />
+                <Box sx={{ width: 130, height: 1, bgcolor: "#cbd5e1", mb: 0.2, mx: "auto" }} />
+                <Typography sx={{ fontSize: "7.5px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Customer Signature</Typography>
+                <Typography sx={{ fontSize: "8px", color: "#475569", fontWeight: 600 }}>{customerName || "Customer"}</Typography>
+              </Box>
+              <Box sx={{ textAlign: "right", position: "relative" }}>
+                <Typography sx={{ fontSize: "10.5px", fontWeight: 900, color: "#1e3a5f", mb: 0, textDecoration: "underline", textDecorationColor: "#eab308", textUnderlineOffset: 3 }}>For {activeCompany.name}</Typography>
+                <Box component="img" src={origin ? `${origin}${(activeCompany as any).signature || '/signature.png'}` : ((activeCompany as any).signature || '/signature.png')} alt="Authorized Signatory" sx={{ width: 140, height: 50, objectFit: "contain", display: "block", ml: "auto", my: 0.2 }} onError={(e: any) => e.target.style.display = 'none'} />
+                <Box sx={{ width: 140, height: 1, bgcolor: "#cbd5e1", mb: 0.2, ml: "auto" }} />
+                <Typography sx={{ fontSize: "7.5px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
+              </Box>
             </Box>
-            <Box sx={{ textAlign: "right", position: "relative" }}>
-              <Typography sx={{ fontSize: "14px", fontWeight: 900, color: "#1e3a5f", mb: 0, textDecoration: "underline", textDecorationColor: "#eab308", textUnderlineOffset: 4 }}>For {activeCompany.name}</Typography>
-              <Box component="img" src={origin ? `${origin}${(activeCompany as any).signature || '/signature.png'}` : ((activeCompany as any).signature || '/signature.png')} alt="Authorized Signatory" sx={{ width: 200, height: 90, objectFit: "contain", display: "block", ml: "auto", my: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
-              <Box sx={{ width: 192, height: 1, bgcolor: "#cbd5e1", mb: 0.5, ml: "auto" }} />
-              <Typography sx={{ fontSize: "9px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Authorized Signatory</Typography>
-            </Box>
-          </Box>
           </>)}
         </Box>
       </Box>
@@ -1507,6 +2499,85 @@ function QuotationBuilder() {
           </Box>
         </DialogContent>
         <DialogActions><Button onClick={() => setAddComponentDialog(false)}>Cancel</Button><Button variant="contained" onClick={handleAddComponent}>Add</Button></DialogActions>
+      </Dialog>
+
+      {/* Add Custom B2B Item Dialog */}
+      <Dialog open={addB2BCustomDialog} onClose={() => setAddB2BCustomDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add Custom B2B Line Item</DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}>
+          <TextField
+            fullWidth
+            label="Product Name"
+            value={customB2BItem.name}
+            onChange={(e) => setCustomB2BItem({ ...customB2BItem, name: e.target.value })}
+            placeholder="e.g. GI Walkway Mesh 300mm"
+            required
+          />
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              fullWidth
+              label="SKU Code"
+              value={customB2BItem.sku}
+              onChange={(e) => setCustomB2BItem({ ...customB2BItem, sku: e.target.value })}
+              placeholder="e.g. APL-WALK-300"
+            />
+            <FormControl fullWidth>
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={customB2BItem.category}
+                label="Category"
+                onChange={(e) => setCustomB2BItem({ ...customB2BItem, category: e.target.value })}
+              >
+                {apolloCategories.filter(c => c !== "All").map((c) => (
+                  <MenuItem key={c} value={c}>{c}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          <Box sx={{ display: "flex", gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Base Rate (₹)"
+              type="number"
+              value={customB2BItem.basePrice}
+              onChange={(e) => setCustomB2BItem({ ...customB2BItem, basePrice: parseFloat(e.target.value) || 0 })}
+              InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+            />
+            <TextField
+              fullWidth
+              label="Quantity"
+              type="number"
+              value={customB2BItem.qty}
+              onChange={(e) => setCustomB2BItem({ ...customB2BItem, qty: parseFloat(e.target.value) || 1 })}
+            />
+            <TextField
+              fullWidth
+              label="Unit"
+              value={customB2BItem.unit}
+              onChange={(e) => setCustomB2BItem({ ...customB2BItem, unit: e.target.value })}
+              placeholder="Pcs / Mtr / BDL"
+            />
+            <FormControl fullWidth>
+              <InputLabel>GST %</InputLabel>
+              <Select
+                value={customB2BItem.gstRate ?? 18}
+                label="GST %"
+                onChange={(e) => setCustomB2BItem({ ...customB2BItem, gstRate: Number(e.target.value) })}
+              >
+                <MenuItem value={18}>18% (Standard)</MenuItem>
+                <MenuItem value={5}>5% (Solar / RE)</MenuItem>
+                <MenuItem value={12}>12%</MenuItem>
+                <MenuItem value={0}>0%</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddB2BCustomDialog(false)}>Cancel</Button>
+          <Button variant="contained" color="warning" onClick={handleAddCustomB2BItem}>
+            Add Item
+          </Button>
+        </DialogActions>
       </Dialog>
 
       <Snackbar open={notification.open} autoHideDuration={5000} onClose={() => setNotification((prev) => ({ ...prev, open: false }))}><Alert severity={notification.severity}>{notification.message}</Alert></Snackbar>

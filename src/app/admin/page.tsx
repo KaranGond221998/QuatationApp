@@ -16,6 +16,8 @@ import {
   Receipt,
   Home,
   Add,
+  Construction,
+  Inventory2,
 } from "@mui/icons-material";
 import Link from "next/link";
 import { companyDetails } from "@/lib/companyDetails";
@@ -58,31 +60,45 @@ export default function AdminDashboard() {
 
   const menuItems = [
     {
-      title: "Create Quotation",
-      description: "Create a new solar quotation",
+      title: "Rooftop Quotation",
+      description: "On-grid, Off-grid & Hybrid Solar Quotations",
       icon: <Add sx={{ fontSize: 40 }} />,
-      color: "#4CAF50",
+      color: "#16a34a",
       href: "/",
     },
     {
-      title: "Manage Products",
-      description: "Add, edit, or delete solar products",
+      title: "Structure / B2B Quote",
+      description: "Apollo & Tata Solar Structures, Wires & Kits",
+      icon: <Construction sx={{ fontSize: 40 }} />,
+      color: "#d97706",
+      href: "/?tab=ApolloB2B",
+    },
+    {
+      title: "Structure Catalog",
+      description: "Browse 41 mounting structures, clamps & cables",
+      icon: <Inventory2 sx={{ fontSize: 40 }} />,
+      color: "#2563eb",
+      href: "/admin/structure-catalog",
+    },
+    {
+      title: "Solar Products",
+      description: "Manage rooftop panels & inverters",
       icon: <Inventory sx={{ fontSize: 40 }} />,
-      color: "#2196F3",
+      color: "#0891b2",
       href: "/admin/products",
     },
     {
-      title: "Manage Components",
-      description: "Customize bill of materials",
+      title: "Bill of Materials",
+      description: "Customize components for solar systems",
       icon: <SettingsInputComponent sx={{ fontSize: 40 }} />,
-      color: "#FF9800",
+      color: "#f59e0b",
       href: "/admin/components",
     },
     {
-      title: "Quotations",
-      description: "View all saved quotations",
+      title: "Saved Quotations",
+      description: "View, edit, search & export quotations",
       icon: <Receipt sx={{ fontSize: 40 }} />,
-      color: "#9C27B0",
+      color: "#9333ea",
       href: "/admin/quotations",
     },
   ];
@@ -153,7 +169,7 @@ export default function AdminDashboard() {
         </Typography>
         <Grid container spacing={3}>
           {menuItems.map((item) => (
-            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={item.title}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={item.title}>
               <Link href={item.href} style={{ textDecoration: "none" }}>
                 <Card
                   sx={{

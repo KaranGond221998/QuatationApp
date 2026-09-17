@@ -18,8 +18,9 @@ import {
     TextField,
     InputAdornment,
     Tooltip,
+    Button,
 } from "@mui/material";
-import { ArrowBack, Visibility, Delete, Search, WhatsApp, Edit } from "@mui/icons-material";
+import { ArrowBack, Visibility, Delete, Search, WhatsApp, Edit, Construction, Add } from "@mui/icons-material";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -34,6 +35,8 @@ type Quotation = {
     created_at: string;
     pdf_url?: string;
     form_data?: any;
+    components?: any;
+    system_type_name?: string;
 };
 
 export default function QuotationsAdminPage() {
@@ -42,6 +45,7 @@ export default function QuotationsAdminPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [typeFilter, setTypeFilter] = useState<"all" | "b2b" | "rooftop" | "service">("all");
     const router = useRouter();
 
     const fetchQuotations = async () => {
@@ -117,7 +121,21 @@ export default function QuotationsAdminPage() {
         }
     };
 
+    const isB2B = (q: Quotation) =>
+        q.form_data?.selectedSystemType === "ApolloB2B" ||
+        Boolean(q.form_data?.b2bItems) ||
+        q.system_type_name === "ApolloB2B";
+
+    const isService = (q: Quotation) =>
+        q.form_data?.selectedSystemType === "Service" ||
+        q.system_type_name === "Service";
+
     const filteredQuotations = quotations.filter((q) => {
+        // Type filter
+        if (typeFilter === "b2b" && !isB2B(q)) return false;
+        if (typeFilter === "service" && !isService(q)) return false;
+        if (typeFilter === "rooftop" && (isB2B(q) || isService(q))) return false;
+
         // Search query filter (Name, Phone, Quote Number)
         const matchesSearch =
             q.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -144,7 +162,7 @@ export default function QuotationsAdminPage() {
         <Box sx={{ p: 3, bgcolor: "#f5f7fa", minHeight: "100vh" }}>
             <Box sx={{ maxWidth: 1200, mx: "auto" }}>
                 {/* Header */}
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                         <Link href="/admin">
                             <IconButton>
@@ -155,7 +173,27 @@ export default function QuotationsAdminPage() {
                             Quotations
                         </Typography>
                     </Box>
-                    <Box sx={{ display: "flex", gap: 2 }}>
+                    <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap" }}>
+                        <Link href="/?tab=ApolloB2B" style={{ textDecoration: "none" }}>
+                            <Button
+                                variant="contained"
+                                size="small"
+                                startIcon={<Construction />}
+                                sx={{ bgcolor: "#d97706", "&:hover": { bgcolor: "#b45309" }, textTransform: "none", fontWeight: "bold" }}
+                            >
+                                New B2B Quote
+                            </Button>
+                        </Link>
+                        <Link href="/" style={{ textDecoration: "none" }}>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<Add />}
+                                sx={{ textTransform: "none", fontWeight: "bold" }}
+                            >
+                                New Rooftop Quote
+                            </Button>
+                        </Link>
                         <TextField
                             size="small"
                             type="date"
@@ -184,9 +222,47 @@ export default function QuotationsAdminPage() {
                                     </InputAdornment>
                                 ),
                             }}
-                            sx={{ width: 250 }}
+                            sx={{ width: 220 }}
                         />
                     </Box>
+                </Box>
+
+                {/* Type Filter Chips */}
+                <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 2, flexWrap: "wrap" }}>
+                    <Typography variant="body2" sx={{ fontWeight: "bold", color: "text.secondary", mr: 1 }}>Filter Type:</Typography>
+                    <Chip
+                        label={`All (${quotations.length})`}
+                        clickable
+                        color={typeFilter === "all" ? "primary" : "default"}
+                        variant={typeFilter === "all" ? "filled" : "outlined"}
+                        onClick={() => setTypeFilter("all")}
+                        size="small"
+                    />
+                    <Chip
+                        icon={<Construction sx={{ fontSize: "14px !important" }} />}
+                        label={`Structure B2B (${quotations.filter(isB2B).length})`}
+                        clickable
+                        color={typeFilter === "b2b" ? "warning" : "default"}
+                        variant={typeFilter === "b2b" ? "filled" : "outlined"}
+                        onClick={() => setTypeFilter("b2b")}
+                        size="small"
+                    />
+                    <Chip
+                        label={`Rooftop Solar (${quotations.filter((q) => !isB2B(q) && !isService(q)).length})`}
+                        clickable
+                        color={typeFilter === "rooftop" ? "success" : "default"}
+                        variant={typeFilter === "rooftop" ? "filled" : "outlined"}
+                        onClick={() => setTypeFilter("rooftop")}
+                        size="small"
+                    />
+                    <Chip
+                        label={`Service Proposals (${quotations.filter(isService).length})`}
+                        clickable
+                        color={typeFilter === "service" ? "secondary" : "default"}
+                        variant={typeFilter === "service" ? "filled" : "outlined"}
+                        onClick={() => setTypeFilter("service")}
+                        size="small"
+                    />
                 </Box>
 
                 {/* Status Legend */}
@@ -229,7 +305,7 @@ export default function QuotationsAdminPage() {
                                             <TableCell sx={{ fontWeight: "bold" }}>Quote No.</TableCell>
                                             <TableCell sx={{ fontWeight: "bold" }}>Customer</TableCell>
                                             <TableCell sx={{ fontWeight: "bold" }}>Phone</TableCell>
-                                            <TableCell sx={{ fontWeight: "bold" }}>Capacity</TableCell>
+                                            <TableCell sx={{ fontWeight: "bold" }}>System / Capacity</TableCell>
                                             <TableCell sx={{ fontWeight: "bold" }}>Amount</TableCell>
                                             <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
                                             <TableCell sx={{ fontWeight: "bold" }}>Date</TableCell>
@@ -248,7 +324,26 @@ export default function QuotationsAdminPage() {
                                                 </TableCell>
                                                 <TableCell>{quotation.customer_name}</TableCell>
                                                 <TableCell>{quotation.customer_phone || "-"}</TableCell>
-                                                <TableCell>{quotation.capacity_kw ? `${quotation.capacity_kw} KW` : "-"}</TableCell>
+                                                <TableCell>
+                                                    {isB2B(quotation) ? (
+                                                        <Chip
+                                                            icon={<Construction sx={{ fontSize: "14px !important" }} />}
+                                                            label={`Structure B2B (${quotation.form_data?.b2bItems?.length || (Array.isArray(quotation.components) ? quotation.components.length : 0)} items)`}
+                                                            size="small"
+                                                            sx={{ bgcolor: "#fef3c7", color: "#92400e", fontWeight: "bold", fontSize: "0.72rem" }}
+                                                        />
+                                                    ) : isService(quotation) ? (
+                                                        <Chip
+                                                            label="Service"
+                                                            size="small"
+                                                            sx={{ bgcolor: "#e0e7ff", color: "#3730a3", fontWeight: "bold", fontSize: "0.72rem" }}
+                                                        />
+                                                    ) : quotation.capacity_kw ? (
+                                                        `${quotation.capacity_kw} KW`
+                                                    ) : (
+                                                        "-"
+                                                    )}
+                                                </TableCell>
                                                 <TableCell>{formatCurrency(quotation.total_amount)}</TableCell>
                                                 <TableCell>
                                                     <Chip label={quotation.status} size="small" color={getStatusColor(quotation.status) as any} />

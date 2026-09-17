@@ -38,7 +38,71 @@ export default function ServiceProposalBuilder() {
   const [editTerm, setEditTerm] = useState("");
 
   const printRef = useRef<HTMLDivElement>(null);
-  const handlePrint = useReactToPrint({ contentRef: printRef, documentTitle: `Service_Proposal_${clientName.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}` });
+  const printPageStyle = `
+    @page {
+      size: A4 portrait;
+      margin: 12mm 12mm 14mm 12mm;
+    }
+    @media print {
+      *, *:before, *:after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      .print-page {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        height: auto !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: #ffffff !important;
+        box-sizing: border-box !important;
+      }
+      .avoid-break {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+      }
+      thead {
+        display: table-header-group !important;
+      }
+      tfoot {
+        display: table-footer-group !important;
+      }
+      tbody {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+      }
+      tr {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      th, td {
+        word-break: break-word !important;
+      }
+    }
+  `;
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+    documentTitle: `Service_Proposal_${clientName.replace(/\s+/g, "_") || "Client"}_${new Date().toISOString().slice(0, 10)}`,
+    pageStyle: printPageStyle,
+  });
 
   const refNumber = useMemo(() => generateServiceRefNumber(company.id === "krishnanuja" ? "KRPL" : "ASS"), [company.id]);
   const currentDate = useMemo(() => new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" }).replace(/^(\d+)\s/, "$1 "), []);
@@ -69,18 +133,31 @@ export default function ServiceProposalBuilder() {
     setProposalTitle("PROPOSAL FOR O&M SERVICES");
   };
 
-  const totalPages = 2;
-
   return (
     <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, height: { xs: "auto", md: "100vh" }, bgcolor: "#f1f5f9", overflow: { xs: "auto", md: "hidden" } }}>
       <style jsx global>{`
+        @page {
+          size: A4 portrait;
+          margin: 12mm 12mm 14mm 12mm;
+        }
         @media print {
+          *, *:before, *:after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+          }
           .no-print { display: none !important; }
+          body, html { visibility: hidden; height: auto !important; overflow: visible !important; margin: 0 !important; padding: 0 !important; background: #ffffff !important; }
           .print-wrapper { position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; margin: 0 !important; padding: 0 !important; visibility: visible !important; background: white !important; overflow: visible !important; }
-          .print-page { visibility: visible !important; width: 210mm !important; max-width: 100% !important; padding: 15mm !important; margin: 0 auto !important; border: none !important; box-shadow: none !important; height: auto !important; min-height: 297mm !important; }
-          .avoid-break { page-break-inside: avoid; break-inside: avoid; }
-          body, html { visibility: hidden; height: auto !important; overflow: visible !important; }
           .print-wrapper * { visibility: visible; }
+          .print-page { visibility: visible !important; width: 100% !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; height: auto !important; min-height: auto !important; background: white !important; box-sizing: border-box !important; }
+          table { width: 100% !important; border-collapse: collapse !important; page-break-inside: auto; break-inside: auto; }
+          thead { display: table-header-group !important; }
+          tfoot { display: table-footer-group !important; }
+          tbody { break-inside: auto !important; page-break-inside: auto !important; }
+          tr { break-inside: avoid !important; page-break-inside: avoid !important; page-break-after: auto; }
+          th, td { word-break: break-word !important; }
+          .avoid-break { page-break-inside: avoid !important; break-inside: avoid !important; }
         }
       `}</style>
 
@@ -196,73 +273,73 @@ export default function ServiceProposalBuilder() {
 
       {/* PREVIEW */}
       <Box className="print-wrapper" sx={{ flex: 1, overflow: "auto", p: { xs: 2, md: 3 }, display: "flex", justifyContent: "center", bgcolor: "#e2e8f0" }}>
-        <Box ref={printRef} className="print-page" sx={{ width: "210mm", minHeight: "297mm", p: "15mm", bgcolor: "white", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", fontFamily: "'Segoe UI', sans-serif", fontSize: "11px", color: "#1e293b", boxSizing: "border-box" }}>
+        <Box ref={printRef} className="print-page" sx={{ width: "210mm", minHeight: "297mm", p: "14mm 14mm 16mm 14mm", bgcolor: "white", boxShadow: "0 4px 20px rgba(0,0,0,0.15)", fontFamily: "'Segoe UI', sans-serif", fontSize: "11px", color: "#1e293b", boxSizing: "border-box" }}>
 
           {/* Header */}
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "4px solid #0d47a1", pb: 3, mb: 3 }}>
+          <Box className="avoid-break" sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "4px solid #0d47a1", pb: 1.5, mb: 1.5 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Box component="img" src={origin ? `${origin}${company.logo}` : company.logo} alt="Logo" sx={{ maxHeight: 80 }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+              <Box component="img" src={origin ? `${origin}${company.logo}` : company.logo} alt="Logo" sx={{ maxHeight: company.id === "krishnanuja" ? 95 : 72, maxWidth: company.id === "krishnanuja" ? 125 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
               <Box>
-                <Typography sx={{ fontSize: company.name.length > 25 ? "16px" : "24px", fontWeight: 900, color: "#0d47a1", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{company.name}</Typography>
-                <Typography sx={{ fontSize: "10px", fontWeight: 600, color: "#64748b", mt: 0.5, letterSpacing: 1, textTransform: "uppercase" }}>{company.tagline}</Typography>
-                <Box sx={{ fontSize: "9px", color: "#64748b", mt: 1 }}>
-                  <Typography sx={{ color: "#0d47a1", fontWeight: 700, mb: 0.25, fontSize: "9px" }}>GSTIN: {company.gstin}{(company as any).cin ? ` | CIN: ${(company as any).cin}` : ''}</Typography>
-                  <Typography sx={{ fontSize: "9px" }}><strong>Office:</strong> {company.headOffice}</Typography>
-                  {(company as any).warehouse && <Typography sx={{ fontSize: "9px" }}><strong>Warehouse:</strong> {(company as any).warehouse}</Typography>}
-                  <Typography sx={{ fontSize: "9px" }}>📞 +91 {company.phone}</Typography>
+                <Typography sx={{ fontSize: company.name.length > 25 ? "15px" : "22px", fontWeight: 900, color: "#0d47a1", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{company.name}</Typography>
+                <Typography sx={{ fontSize: "9.5px", fontWeight: 600, color: "#64748b", mt: 0.25, letterSpacing: 0.8, textTransform: "uppercase" }}>{company.tagline}</Typography>
+                <Box sx={{ fontSize: "8.5px", color: "#64748b", mt: 0.5 }}>
+                  <Typography sx={{ color: "#0d47a1", fontWeight: 700, mb: 0.2, fontSize: "8.5px" }}>GSTIN: {company.gstin}{(company as any).cin ? ` | CIN: ${(company as any).cin}` : ''}</Typography>
+                  <Typography sx={{ fontSize: "8.5px" }}><strong>Office:</strong> {company.headOffice}</Typography>
+                  {(company as any).warehouse && <Typography sx={{ fontSize: "8.5px" }}><strong>Warehouse:</strong> {(company as any).warehouse}</Typography>}
+                  <Typography sx={{ fontSize: "8.5px" }}>📞 +91 {company.phone}</Typography>
                 </Box>
               </Box>
             </Box>
             <Box sx={{ textAlign: "right" }}>
-              <Box sx={{ bgcolor: "#0d47a1", color: "white", px: 2, py: 0.75, fontSize: "11px", fontWeight: 900, borderRadius: 1, mb: 1, textTransform: "uppercase", letterSpacing: 1 }}>Service Proposal</Box>
-              <Typography sx={{ fontSize: "11px", color: "#64748b", fontWeight: 700 }}>Date: {currentDate}</Typography>
-              <Typography sx={{ fontSize: "10px", color: "#94a3b8" }}>Reference: {refNumber}</Typography>
+              <Box sx={{ bgcolor: "#0d47a1", color: "white", px: 1.5, py: 0.5, fontSize: "10px", fontWeight: 900, borderRadius: 1, mb: 0.75, textTransform: "uppercase", letterSpacing: 1 }}>Service Proposal</Box>
+              <Typography sx={{ fontSize: "10px", color: "#64748b", fontWeight: 700 }}>Date: {currentDate}</Typography>
+              <Typography sx={{ fontSize: "9.5px", color: "#94a3b8" }}>Reference: {refNumber}</Typography>
             </Box>
           </Box>
 
           {/* Proposal Title */}
-          <Box sx={{ textAlign: "center", mb: 3, py: 1.5, bgcolor: "#e3f2fd", borderRadius: 2, border: "1px solid #90caf9" }}>
-            <Typography sx={{ fontSize: "16px", fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", letterSpacing: 2 }}>{proposalTitle}</Typography>
+          <Box className="avoid-break" sx={{ textAlign: "center", mb: 1.5, py: 1, bgcolor: "#e3f2fd", borderRadius: 1.5, border: "1px solid #90caf9" }}>
+            <Typography sx={{ fontSize: "14px", fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", letterSpacing: 1.5 }}>{proposalTitle}</Typography>
           </Box>
 
           {/* Prepared For */}
-          <Box className="avoid-break" sx={{ mb: 3, bgcolor: "#f8fafc", p: 2, borderRadius: 2, border: "1px solid #e2e8f0" }}>
-            <Typography sx={{ fontWeight: 700, color: "#0d47a1", mb: 1, textTransform: "uppercase", fontSize: "10px", letterSpacing: 1, borderBottom: "1px solid #e2e8f0", pb: 0.5 }}>Prepared For</Typography>
-            <Typography sx={{ fontWeight: 900, color: "#1e40af", fontSize: "16px" }}>{clientName || "________________"}</Typography>
-            {clientAddress && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "11px", fontStyle: "italic", mt: 0.5 }}>{clientAddress}</Typography>}
-            {clientPhone && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "11px" }}>📞 {clientPhone}</Typography>}
+          <Box className="avoid-break" sx={{ mb: 1.5, bgcolor: "#f8fafc", p: 1.2, borderRadius: 1.5, border: "1px solid #e2e8f0" }}>
+            <Typography sx={{ fontWeight: 700, color: "#0d47a1", mb: 0.5, textTransform: "uppercase", fontSize: "9px", letterSpacing: 0.8, borderBottom: "1px solid #e2e8f0", pb: 0.25 }}>Prepared For</Typography>
+            <Typography sx={{ fontWeight: 900, color: "#1e40af", fontSize: "14px" }}>{clientName || "________________"}</Typography>
+            {clientAddress && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "9.5px", fontStyle: "italic", mt: 0.25 }}>{clientAddress}</Typography>}
+            {clientPhone && <Typography sx={{ color: "#475569", fontWeight: 500, fontSize: "9.5px" }}>📞 {clientPhone}</Typography>}
           </Box>
 
           {/* Commercial Details */}
-          <Box sx={{ mb: 1 }}>
-            <Typography sx={{ fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", fontSize: "11px", letterSpacing: 1, mb: 1, borderBottom: "2px solid #0d47a1", pb: 0.5, display: "inline-block" }}>Commercial Details</Typography>
+          <Box sx={{ mb: 0.5 }}>
+            <Typography sx={{ fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", fontSize: "10.5px", letterSpacing: 1, mb: 0.5, borderBottom: "2px solid #0d47a1", pb: 0.25, display: "inline-block" }}>Commercial Details</Typography>
           </Box>
-          <Box sx={{ overflow: "hidden", borderRadius: 2, border: "1px solid #e2e8f0", mb: 3 }}>
-            <table style={{ width: "100%", fontSize: "11px", borderCollapse: "collapse" }}>
+          <Box className="print-table-wrapper" sx={{ overflow: "hidden", borderRadius: 1.5, border: "1px solid #e2e8f0", mb: 1.5 }}>
+            <table style={{ width: "100%", fontSize: "10.5px", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ backgroundColor: "#e3f2fd", color: "#0d47a1", borderBottom: "2px solid #90caf9" }}>
-                  <th style={{ padding: "10px 8px", textAlign: "center", width: "40px" }}>S.No.</th>
-                  <th style={{ padding: "10px 8px", textAlign: "left" }}>Description</th>
-                  <th style={{ padding: "10px 8px", textAlign: "center", width: "80px" }}>HSN/SAC</th>
-                  <th style={{ padding: "10px 8px", textAlign: "center", width: "40px" }}>Qty</th>
-                  <th style={{ padding: "10px 8px", textAlign: "center", width: "50px" }}>Unit</th>
-                  <th style={{ padding: "10px 8px", textAlign: "right", width: "110px" }}>Rate (INR)</th>
-                  <th style={{ padding: "10px 8px", textAlign: "right", width: "110px" }}>Amount (INR)</th>
+                  <th style={{ padding: "6px 6px", textAlign: "center", width: "35px" }}>S.No.</th>
+                  <th style={{ padding: "6px 6px", textAlign: "left" }}>Description</th>
+                  <th style={{ padding: "6px 6px", textAlign: "center", width: "75px" }}>HSN/SAC</th>
+                  <th style={{ padding: "6px 6px", textAlign: "center", width: "35px" }}>Qty</th>
+                  <th style={{ padding: "6px 6px", textAlign: "center", width: "55px" }}>Unit</th>
+                  <th style={{ padding: "6px 6px", textAlign: "right", width: "100px" }}>Rate (INR)</th>
+                  <th style={{ padding: "6px 6px", textAlign: "right", width: "100px" }}>Amount (INR)</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item, i) => (
                   <tr key={i} style={{ backgroundColor: i % 2 === 1 ? "#f8fafc" : "white", borderBottom: "1px solid #e2e8f0" }}>
-                    <td style={{ padding: "10px 8px", textAlign: "center", fontWeight: 700 }}>{item.sno}</td>
-                    <td style={{ padding: "10px 8px", fontWeight: 600 }}>
+                    <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 700 }}>{item.sno}</td>
+                    <td style={{ padding: "6px 6px", fontWeight: 600 }}>
                       {item.description}
-                      {item.monthlyRate ? <><br /><span style={{ fontSize: "9px", color: "#64748b" }}>(Monthly Rate: ₹{fmt(item.monthlyRate)})</span></> : null}
+                      {item.monthlyRate ? <><br /><span style={{ fontSize: "8.5px", color: "#64748b" }}>(Monthly Rate: ₹{fmt(item.monthlyRate)})</span></> : null}
                     </td>
-                    <td style={{ padding: "10px 8px", textAlign: "center", color: "#64748b" }}>{item.hsnSac}</td>
-                    <td style={{ padding: "10px 8px", textAlign: "center", fontWeight: 700 }}>{item.qty}</td>
-                    <td style={{ padding: "10px 8px", textAlign: "center" }}>{item.unit}</td>
-                    <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 600 }}>{fmt(item.rate)}</td>
-                    <td style={{ padding: "10px 8px", textAlign: "right", fontWeight: 700 }}>{fmt(item.amount)}</td>
+                    <td style={{ padding: "6px 6px", textAlign: "center", color: "#64748b" }}>{item.hsnSac}</td>
+                    <td style={{ padding: "6px 6px", textAlign: "center", fontWeight: 700 }}>{item.qty}</td>
+                    <td style={{ padding: "6px 6px", textAlign: "center" }}>{item.unit}</td>
+                    <td style={{ padding: "6px 6px", textAlign: "right", fontWeight: 600 }}>{fmt(item.rate)}</td>
+                    <td style={{ padding: "6px 6px", textAlign: "right", fontWeight: 700 }}>{fmt(item.amount)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -270,50 +347,47 @@ export default function ServiceProposalBuilder() {
           </Box>
 
           {/* Totals */}
-          <Box className="avoid-break" sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
-            <Box sx={{ width: "50%", border: "1px solid #e2e8f0", borderRadius: 2, overflow: "hidden" }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", p: "8px 12px", borderBottom: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
-                <Typography sx={{ fontSize: "11px", fontWeight: 600 }}>Sub Total:</Typography>
-                <Typography sx={{ fontSize: "11px", fontWeight: 700 }}>₹ {fmt(subtotal)}</Typography>
+          <Box className="avoid-break" sx={{ display: "flex", justifyContent: "flex-end", mb: 1.5 }}>
+            <Box sx={{ width: "50%", border: "1px solid #e2e8f0", borderRadius: 1.5, overflow: "hidden" }}>
+              <Box sx={{ display: "flex", justifyContent: "space-between", p: "6px 10px", borderBottom: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
+                <Typography sx={{ fontSize: "10.5px", fontWeight: 600 }}>Sub Total:</Typography>
+                <Typography sx={{ fontSize: "10.5px", fontWeight: 700 }}>₹ {fmt(subtotal)}</Typography>
               </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between", p: "8px 12px", borderBottom: "1px solid #e2e8f0" }}>
-                <Typography sx={{ fontSize: "11px", fontWeight: 600 }}>{gstRate}% GST:</Typography>
-                <Typography sx={{ fontSize: "11px", fontWeight: 700 }}>₹ {fmt(gstAmount)}</Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", p: "6px 10px", borderBottom: "1px solid #e2e8f0" }}>
+                <Typography sx={{ fontSize: "10.5px", fontWeight: 600 }}>{gstRate}% GST:</Typography>
+                <Typography sx={{ fontSize: "10.5px", fontWeight: 700 }}>₹ {fmt(gstAmount)}</Typography>
               </Box>
-              <Box sx={{ display: "flex", justifyContent: "space-between", p: "10px 12px", bgcolor: "#0d47a1" }}>
-                <Typography sx={{ fontSize: "13px", fontWeight: 900, color: "white" }}>Grand Total:</Typography>
-                <Typography sx={{ fontSize: "13px", fontWeight: 900, color: "white" }}>₹ {fmt(grandTotal)}</Typography>
+              <Box sx={{ display: "flex", justifyContent: "space-between", p: "8px 10px", bgcolor: "#0d47a1" }}>
+                <Typography sx={{ fontSize: "12px", fontWeight: 900, color: "white" }}>Grand Total:</Typography>
+                <Typography sx={{ fontSize: "12px", fontWeight: 900, color: "white" }}>₹ {fmt(grandTotal)}</Typography>
               </Box>
             </Box>
           </Box>
 
           {/* Terms & Conditions */}
-          <Box className="avoid-break" sx={{ fontSize: "10px", borderTop: "1px solid #e2e8f0", pt: 2, mb: 3 }}>
-            <Typography sx={{ fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", mb: 1, letterSpacing: 1, fontSize: "11px" }}>Terms & Conditions</Typography>
-            <Box component="ol" sx={{ pl: 2.5, color: "#475569", m: 0, "& li": { mb: 0.75, lineHeight: 1.5 } }}>
+          <Box className="avoid-break" sx={{ fontSize: "9.5px", borderTop: "1px solid #e2e8f0", pt: 1, mb: 1.5 }}>
+            <Typography sx={{ fontWeight: 900, color: "#0d47a1", textTransform: "uppercase", mb: 0.5, letterSpacing: 0.8, fontSize: "10px" }}>Terms & Conditions</Typography>
+            <Box component="ol" sx={{ pl: 2, color: "#475569", m: 0, "& li": { mb: 0.35, lineHeight: 1.4 } }}>
               {terms.map((term, i) => (
                 <li key={i} dangerouslySetInnerHTML={{ __html: term.replace(/^([^:]+):/, '<strong>$1:</strong>') }} />
               ))}
             </Box>
           </Box>
 
-          {/* Footer / Page */}
-          <Typography sx={{ fontSize: "9px", color: "#94a3b8", textAlign: "right", mb: 2 }}>Page: 1 of {totalPages}</Typography>
-
           {/* Signatures */}
-          <Box sx={{ mt: 4, display: "flex", justifyContent: "space-between", alignItems: "flex-end", px: 2 }}>
+          <Box className="avoid-break" sx={{ mt: 2, display: "flex", justifyContent: "space-between", alignItems: "flex-end", px: 1 }}>
             <Box sx={{ textAlign: "center" }}>
-              <Typography sx={{ fontSize: "10px", fontWeight: 700, color: "#1e3a5f", mb: 0.5 }}>Client Acceptance</Typography>
-              <Box sx={{ width: 160, height: 60 }} />
-              <Box sx={{ width: 160, height: 1, bgcolor: "#cbd5e1", mb: 0.5, mx: "auto" }} />
-              <Typography sx={{ fontSize: "9px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Authorized Signatory</Typography>
-              <Typography sx={{ fontSize: "9px", color: "#475569", fontWeight: 600 }}>{clientName || "Client"}</Typography>
+              <Typography sx={{ fontSize: "9px", fontWeight: 700, color: "#1e3a5f", mb: 0.25 }}>Client Acceptance</Typography>
+              <Box sx={{ width: 140, height: 40 }} />
+              <Box sx={{ width: 140, height: 1, bgcolor: "#cbd5e1", mb: 0.25, mx: "auto" }} />
+              <Typography sx={{ fontSize: "8px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
+              <Typography sx={{ fontSize: "8px", color: "#475569", fontWeight: 600 }}>{clientName || "Client"}</Typography>
             </Box>
             <Box sx={{ textAlign: "right" }}>
-              <Typography sx={{ fontSize: "14px", fontWeight: 900, color: "#0d47a1", mb: 0, textDecoration: "underline", textDecorationColor: "#0d47a1", textUnderlineOffset: 4 }}>For {company.name}</Typography>
-              <Box component="img" src={origin ? `${origin}${(company as any).signature || '/signature.png'}` : ((company as any).signature || '/signature.png')} alt="Signature" sx={{ width: 200, height: 90, objectFit: "contain", display: "block", ml: "auto", my: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
-              <Box sx={{ width: 192, height: 1, bgcolor: "#cbd5e1", mb: 0.5, ml: "auto" }} />
-              <Typography sx={{ fontSize: "9px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Authorized Signatory</Typography>
+              <Typography sx={{ fontSize: "12px", fontWeight: 900, color: "#0d47a1", mb: 0, textDecoration: "underline", textDecorationColor: "#0d47a1", textUnderlineOffset: 3 }}>For {company.name}</Typography>
+              <Box component="img" src={origin ? `${origin}${(company as any).signature || '/signature.png'}` : ((company as any).signature || '/signature.png')} alt="Signature" sx={{ width: 160, height: 70, objectFit: "contain", display: "block", ml: "auto", my: 0.5 }} onError={(e: any) => e.target.style.display = 'none'} />
+              <Box sx={{ width: 160, height: 1, bgcolor: "#cbd5e1", mb: 0.25, ml: "auto" }} />
+              <Typography sx={{ fontSize: "8px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
             </Box>
           </Box>
         </Box>

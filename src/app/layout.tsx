@@ -6,8 +6,8 @@ import theme from '../theme';
 import "../styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "Solar Pricing Calculator",
-  description: "Calculate solar system prices for Arpit Solar",
+  title: "Solar Quotation System | Arpit Solar & Krishnanuja Renewables",
+  description: "Executive Solar & Structure Quotation Builder with Commercial Billing and Subsidy Estimations",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
