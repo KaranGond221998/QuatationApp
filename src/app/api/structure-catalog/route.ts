@@ -1,40 +1,42 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { getServerSupabase } from "@/lib/supabase";
 import { apolloProductsCatalog, ApolloProduct } from "@/data/apolloProducts";
 
-const DATA_FILE = path.join(process.cwd(), "src/data/customStructureProducts.json");
-
-function getCatalog(): ApolloProduct[] {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      const content = fs.readFileSync(DATA_FILE, "utf-8");
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
-      }
-    }
-  } catch (err) {
-    console.error("Error reading customStructureProducts.json:", err);
-  }
-  // Initialize with default catalog if missing
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(apolloProductsCatalog, null, 2), "utf-8");
-  } catch (err) {
-    console.error("Error creating customStructureProducts.json:", err);
-  }
-  return apolloProductsCatalog;
-}
-
-function saveCatalog(products: ApolloProduct[]) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(products, null, 2), "utf-8");
+// Helper: convert DB row (snake_case) to ApolloProduct (camelCase)
+function rowToProduct(row: any): ApolloProduct {
+  return {
+    id: row.id,
+    name: row.name,
+    sku: row.sku,
+    category: row.category,
+    unit: row.unit,
+    gstRate: Number(row.gst_rate),
+    basePrice: Number(row.base_price),
+    stock: row.stock,
+    description: row.description || "",
+  };
 }
 
 // GET - List all structure catalog items
 export async function GET() {
   try {
-    const products = getCatalog();
-    return NextResponse.json({ success: true, data: products });
+    const supabase = getServerSupabase();
+    const { data, error } = await supabase
+      .from("structure_catalog")
+      .select("*")
+      .order("name");
+
+    if (error) {
+      console.error("Supabase structure_catalog GET error:", error.message);
+      // Fallback to hardcoded catalog if DB fails
+      return NextResponse.json({ success: true, data: apolloProductsCatalog, fromDefaults: true });
+    }
+
+    if (!data || data.length === 0) {
+      return NextResponse.json({ success: true, data: apolloProductsCatalog, fromDefaults: true });
+    }
+
+    return NextResponse.json({ success: true, data: data.map(rowToProduct) });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
@@ -44,10 +46,26 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    const supabase = getServerSupabase();
 
-    // Reset action
+    // Reset action - replace all with defaults
     if (body.action === "reset") {
-      saveCatalog(apolloProductsCatalog);
+      // Delete all existing
+      await supabase.from("structure_catalog").delete().neq("id", "");
+      // Insert defaults
+      const rows = apolloProductsCatalog.map((p) => ({
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        category: p.category,
+        unit: p.unit,
+        gst_rate: p.gstRate,
+        base_price: p.basePrice,
+        stock: p.stock,
+        description: p.description || "",
+      }));
+      const { error } = await supabase.from("structure_catalog").upsert(rows, { onConflict: "id" });
+      if (error) throw error;
       return NextResponse.json({ success: true, message: "Reset to default catalog", data: apolloProductsCatalog });
     }
 
@@ -57,24 +75,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Product name and SKU are required" }, { status: 400 });
     }
 
-    const currentCatalog = getCatalog();
     const newId = body.id || `custom-${Date.now()}`;
-    const newProduct: ApolloProduct = {
+    const row = {
       id: newId,
       name: name.trim(),
       sku: sku.trim().toUpperCase(),
       category: category || "G.I. Solar Mounting Structure",
       unit: unit || "Pcs",
-      gstRate: Number(gstRate) || 18,
-      basePrice: Number(basePrice) || 0,
+      gst_rate: Number(gstRate) || 18,
+      base_price: Number(basePrice) || 0,
       stock: stock || "In Stock",
       description: description || "",
     };
 
-    const updatedCatalog = [newProduct, ...currentCatalog];
-    saveCatalog(updatedCatalog);
+    const { data, error } = await supabase
+      .from("structure_catalog")
+      .insert([row])
+      .select()
+      .single();
 
-    return NextResponse.json({ success: true, data: newProduct, message: "Product added successfully" });
+    if (error) throw error;
+
+    return NextResponse.json({ success: true, data: rowToProduct(data), message: "Product added successfully" });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
@@ -90,24 +112,32 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, message: "Product ID is required" }, { status: 400 });
     }
 
-    const currentCatalog = getCatalog();
-    const index = currentCatalog.findIndex((p) => p.id === id);
-    if (index === -1) {
+    const supabase = getServerSupabase();
+
+    // Build the update object with snake_case keys
+    const dbUpdates: any = { updated_at: new Date().toISOString() };
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.sku !== undefined) dbUpdates.sku = updates.sku;
+    if (updates.category !== undefined) dbUpdates.category = updates.category;
+    if (updates.unit !== undefined) dbUpdates.unit = updates.unit;
+    if (updates.gstRate !== undefined) dbUpdates.gst_rate = Number(updates.gstRate);
+    if (updates.basePrice !== undefined) dbUpdates.base_price = Number(updates.basePrice);
+    if (updates.stock !== undefined) dbUpdates.stock = updates.stock;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+
+    const { data, error } = await supabase
+      .from("structure_catalog")
+      .update(dbUpdates)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) {
       return NextResponse.json({ success: false, message: "Product not found" }, { status: 404 });
     }
 
-    // Merge updates
-    const updatedProduct = {
-      ...currentCatalog[index],
-      ...updates,
-      basePrice: updates.basePrice !== undefined ? Number(updates.basePrice) : currentCatalog[index].basePrice,
-      gstRate: updates.gstRate !== undefined ? Number(updates.gstRate) : currentCatalog[index].gstRate,
-    };
-
-    currentCatalog[index] = updatedProduct;
-    saveCatalog(currentCatalog);
-
-    return NextResponse.json({ success: true, data: updatedProduct, message: "Product updated successfully" });
+    return NextResponse.json({ success: true, data: rowToProduct(data), message: "Product updated successfully" });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
@@ -128,14 +158,14 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, message: "Product ID is required" }, { status: 400 });
     }
 
-    const currentCatalog = getCatalog();
-    const filtered = currentCatalog.filter((p) => p.id !== id);
+    const supabase = getServerSupabase();
+    const { error, count } = await supabase
+      .from("structure_catalog")
+      .delete()
+      .eq("id", id);
 
-    if (filtered.length === currentCatalog.length) {
-      return NextResponse.json({ success: false, message: "Product not found" }, { status: 404 });
-    }
+    if (error) throw error;
 
-    saveCatalog(filtered);
     return NextResponse.json({ success: true, message: "Product deleted successfully" });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
