@@ -159,7 +159,7 @@ export async function DELETE(request: Request) {
     }
 
     const supabase = getServerSupabase();
-    const { error, count } = await supabase
+    const { error } = await supabase
       .from("structure_catalog")
       .delete()
       .eq("id", id);
