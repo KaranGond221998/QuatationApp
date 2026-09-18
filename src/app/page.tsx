@@ -341,56 +341,7 @@ function QuotationBuilder() {
 
   // ===== B2B / STRUCTURE MODE STATE =====
   const isB2BMode = selectedSystemType === "ApolloB2B";
-  const [b2bItems, setB2bItems] = useState<ApolloLineItem[]>([
-    {
-      id: "item-1",
-      productId: "apl-raf-2180",
-      name: "Rafter 21ft 80X40",
-      sku: "APL-RAF-2180",
-      category: "G.I. Solar Mounting Structure",
-      unit: "Pcs",
-      basePrice: 450,
-      qty: 10,
-      gstRate: 18,
-      amount: 4500,
-    },
-    {
-      id: "item-2",
-      productId: "apl-pur-2141",
-      name: "Purlin 21ft 41X41",
-      sku: "APL-PUR-2141",
-      category: "G.I. Solar Mounting Structure",
-      unit: "Pcs",
-      basePrice: 380,
-      qty: 20,
-      gstRate: 18,
-      amount: 7600,
-    },
-    {
-      id: "item-3",
-      productId: "apl-mc-001",
-      name: "Mid Clamp",
-      sku: "APL-MC-001",
-      category: "Clamps & Joiners",
-      unit: "Pcs",
-      basePrice: 35,
-      qty: 40,
-      gstRate: 18,
-      amount: 1400,
-    },
-    {
-      id: "item-4",
-      productId: "apl-dcw-4p",
-      name: "DC Wire 4MM Polycab (100Mtr)",
-      sku: "APL-DCW-4P",
-      category: "Wires & Cables",
-      unit: "BDL",
-      basePrice: 5500,
-      qty: 1,
-      gstRate: 18,
-      amount: 5500,
-    },
-  ]);
+  const [b2bItems, setB2bItems] = useState<ApolloLineItem[]>([]);
   const [b2bTerms, setB2bTerms] = useState<string[]>([...defaultB2BTerms]);
   const [b2bProposalTitle, setB2bProposalTitle] = useState("COMMERCIAL QUOTATION FOR SOLAR MOUNTING STRUCTURE & BOS");
   const [b2bStructureMake, setB2bStructureMake] = useState<"APOLLO" | "TATA" | "APOLLO / TATA">("APOLLO");
