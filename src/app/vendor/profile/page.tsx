@@ -16,10 +16,6 @@ import {
     Divider,
     Stack,
     Chip,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
     IconButton,
     Tooltip
 } from '@mui/material';
@@ -29,7 +25,6 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import VerifiedIcon from '@mui/icons-material/Verified';
-import TuneIcon from '@mui/icons-material/Tune';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useAuth } from '@/context/AuthContext';
@@ -71,13 +66,6 @@ export default function VendorProfilePage() {
     const [stampUrl, setStampUrl] = useState('/stamp.png');
     const [qrCodeUrl, setQrCodeUrl] = useState('');
 
-    // Component & Pricing Settings
-    const [defaultMargin, setDefaultMargin] = useState(0);
-    const [preferredPanelBrand, setPreferredPanelBrand] = useState('Adani');
-    const [preferredInverterBrand, setPreferredInverterBrand] = useState('Polycab');
-    const [preferredStructureMake, setPreferredStructureMake] = useState('APOLLO');
-    const [customTerms, setCustomTerms] = useState('');
-
     const logoInputRef = useRef<HTMLInputElement>(null);
     const signatureInputRef = useRef<HTMLInputElement>(null);
     const stampInputRef = useRef<HTMLInputElement>(null);
@@ -111,14 +99,6 @@ export default function VendorProfilePage() {
             setSignatureUrl(vendor.signature_url || '/signature.png');
             setStampUrl(vendor.stamp_url || '/stamp.png');
             setQrCodeUrl(vendor.qr_code_url || '');
-
-            setDefaultMargin(Number(vendor.default_margin) || 0);
-
-            const compSettings = vendor.components_settings || {};
-            setPreferredPanelBrand(compSettings.preferredPanelBrand || 'Adani');
-            setPreferredInverterBrand(compSettings.preferredInverterBrand || 'Polycab');
-            setPreferredStructureMake(compSettings.preferredStructureMake || 'APOLLO');
-            setCustomTerms(compSettings.customTerms || '');
         }
     }, [user, vendor, authLoading, router]);
 
@@ -170,13 +150,6 @@ export default function VendorProfilePage() {
         setSuccessMsg('');
 
         try {
-            const componentsSettings = {
-                preferredPanelBrand,
-                preferredInverterBrand,
-                preferredStructureMake,
-                customTerms,
-            };
-
             const res = await fetch('/api/vendors', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -201,8 +174,8 @@ export default function VendorProfilePage() {
                     signature_url: signatureUrl,
                     stamp_url: stampUrl,
                     qr_code_url: qrCodeUrl || null,
-                    default_margin: Number(defaultMargin) || 0,
-                    components_settings: componentsSettings,
+                    default_margin: vendor.default_margin ?? 0,
+                    components_settings: vendor.components_settings ?? {},
                 }),
             });
 
@@ -210,7 +183,7 @@ export default function VendorProfilePage() {
             if (!json.success) throw new Error(json.message);
 
             await refreshVendor();
-            setSuccessMsg('Shop profile, brand assets, and pricing settings updated successfully!');
+            setSuccessMsg('Shop profile and brand assets updated successfully!');
         } catch (err: any) {
             setErrorMsg(err.message || 'Failed to save changes');
         } finally {
@@ -456,83 +429,6 @@ export default function VendorProfilePage() {
                         </CardContent>
                     </Card>
 
-                    {/* Component & Margin Preferences Card */}
-                    <Card sx={{ mb: 4, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                        <CardContent sx={{ p: 3 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e3a5f', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <TuneIcon fontSize="small" /> Component Preferences & Default Margins
-                            </Typography>
-                            <Typography variant="body2" sx={{ color: '#64748b', mb: 2.5 }}>
-                                Set your default hardware makes and default profit margin. You or the developer can also adjust these on call.
-                            </Typography>
-
-                            <Grid container spacing={2}>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <TextField
-                                        fullWidth
-                                        type="number"
-                                        label="Default Profit Margin (₹ / kW)"
-                                        value={defaultMargin}
-                                        onChange={(e) => setDefaultMargin(Number(e.target.value))}
-                                        helperText="Added to base quote price automatically"
-                                    />
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <FormControl fullWidth>
-                                        <InputLabel>Preferred Panel Brand</InputLabel>
-                                        <Select
-                                            value={preferredPanelBrand}
-                                            label="Preferred Panel Brand"
-                                            onChange={(e) => setPreferredPanelBrand(e.target.value)}
-                                        >
-                                            {['Adani', 'Waaree', 'Goldi', 'Rayzon', 'Premier', 'Vikram Solar', 'Other'].map(b => (
-                                                <MenuItem key={b} value={b}>{b}</MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <FormControl fullWidth>
-                                        <InputLabel>Preferred Inverter Brand</InputLabel>
-                                        <Select
-                                            value={preferredInverterBrand}
-                                            label="Preferred Inverter Brand"
-                                            onChange={(e) => setPreferredInverterBrand(e.target.value)}
-                                        >
-                                            {['Polycab', 'Growatt', 'Deye', 'Solis', 'Sungrow', 'GoodWe', 'Luminous', 'Other'].map(b => (
-                                                <MenuItem key={b} value={b}>{b}</MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                                <Grid size={{ xs: 12, sm: 6 }}>
-                                    <FormControl fullWidth>
-                                        <InputLabel>Structure Make Specification</InputLabel>
-                                        <Select
-                                            value={preferredStructureMake}
-                                            label="Structure Make Specification"
-                                            onChange={(e) => setPreferredStructureMake(e.target.value)}
-                                        >
-                                            <MenuItem value="APOLLO">APOLLO (Default)</MenuItem>
-                                            <MenuItem value="TATA">TATA</MenuItem>
-                                            <MenuItem value="APOLLO / TATA">APOLLO / TATA</MenuItem>
-                                        </Select>
-                                    </FormControl>
-                                </Grid>
-                                <Grid size={{ xs: 12 }}>
-                                    <TextField
-                                        fullWidth
-                                        multiline
-                                        rows={2}
-                                        label="Custom Terms & Notes (Appears on all quotations)"
-                                        value={customTerms}
-                                        onChange={(e) => setCustomTerms(e.target.value)}
-                                        placeholder="e.g. 50% Advance with Purchase Order, 50% before dispatch. Net metering assistance included."
-                                    />
-                                </Grid>
-                            </Grid>
-                        </CardContent>
-                    </Card>
 
                     {/* Shop Identification */}
                     <Card sx={{ mb: 4, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
