@@ -125,3 +125,41 @@ export type QuotationFormData = {
     components: QuotationComponent[];
     salesperson: string;
 };
+
+// Vendor (Tenant Profile)
+export type Vendor = {
+    id: string;
+    name: string;
+    slug?: string | null;
+    tagline?: string | null;
+    gstin?: string | null;
+    phone?: string | null;
+    alternate_phone?: string | null;
+    email?: string | null;
+    head_office?: string | null;
+    registered_office?: string | null;
+    bank_name?: string | null;
+    bank_branch?: string | null;
+    account_name?: string | null;
+    account_number?: string | null;
+    ifsc?: string | null;
+    upi_id?: string | null;
+    logo_url?: string | null;
+    signature_url?: string | null;
+    authorized_signatory?: string | null;
+    default_margin?: number;
+    status: 'active' | 'suspended';
+    created_at?: string;
+    updated_at?: string;
+};
+
+// Vendor User
+export type VendorUser = {
+    id: string;
+    vendor_id: string;
+    role: 'super_admin' | 'vendor' | 'salesperson';
+    full_name?: string | null;
+    email?: string | null;
+    vendor?: Vendor;
+};
+

@@ -9,6 +9,8 @@ export async function GET(request: Request) {
         const status = searchParams.get('status');
         const limit = parseInt(searchParams.get('limit') || '50', 10);
 
+        const vendorId = searchParams.get('vendor_id');
+
         const supabase = getServerSupabase();
         let query = supabase
             .from('quotations')
@@ -18,6 +20,10 @@ export async function GET(request: Request) {
 
         if (status) {
             query = query.eq('status', status);
+        }
+
+        if (vendorId) {
+            query = query.eq('vendor_id', vendorId);
         }
 
         const { data, error } = await query;
@@ -35,6 +41,7 @@ export async function POST(request: Request) {
     try {
         const body = await request.json();
         const {
+            vendor_id,
             customer_name,
             customer_phone,
             customer_address,
@@ -100,6 +107,7 @@ export async function POST(request: Request) {
         const { data, error } = await supabase
             .from('quotations')
             .insert([{
+                vendor_id: vendor_id || null,
                 quote_number,
                 customer_name,
                 customer_phone: customer_phone || null,

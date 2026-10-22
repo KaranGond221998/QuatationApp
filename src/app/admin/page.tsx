@@ -18,6 +18,7 @@ import {
   Add,
   Construction,
   Inventory2,
+  Storefront,
 } from "@mui/icons-material";
 import Link from "next/link";
 import { companyDetails } from "@/lib/companyDetails";
@@ -101,7 +102,15 @@ export default function AdminDashboard() {
       color: "#9333ea",
       href: "/admin/quotations",
     },
+    {
+      title: "Vendor SaaS Portal",
+      description: "Manage multi-tenant vendors, IDs, passwords & seals",
+      icon: <Storefront sx={{ fontSize: 40 }} />,
+      color: "#ea580c",
+      href: "/admin/vendors",
+    },
   ];
+
 
   return (
     <Box sx={{ p: 3, bgcolor: "#f5f7fa", minHeight: "100vh" }}>

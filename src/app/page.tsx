@@ -50,7 +50,11 @@ import {
   Search as SearchIcon,
   Verified,
   Factory,
+  Storefront,
+  Logout,
+  Login as LoginIcon,
 } from "@mui/icons-material";
+import { useAuth } from "@/context/AuthContext";
 import { useReactToPrint } from "react-to-print";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -124,9 +128,48 @@ function QuotationBuilder() {
   const [editingQuotationId, setEditingQuotationId] = useState<string | null>(null);
   const [editLoaded, setEditLoaded] = useState(false);
 
+  // Multi-vendor Authentication & Tenant Context
+  const { user, vendor, role, signOut, allVendors, switchVendor } = useAuth();
+
   // Company Selection
   const [selectedCompanyId, setSelectedCompanyId] = useState(companies[0].id);
-  const activeCompany = useMemo(() => companies.find(c => c.id === selectedCompanyId) || companies[0], [selectedCompanyId]);
+
+  // Sync selectedCompanyId when vendor context changes
+  useEffect(() => {
+    if (vendor?.id && vendor.id !== selectedCompanyId) {
+      setSelectedCompanyId(vendor.id);
+    }
+  }, [vendor]);
+
+  const activeCompany = useMemo(() => {
+    // Check if matching a loaded vendor
+    const foundVendor = allVendors.find(v => v.id === selectedCompanyId) || (vendor && vendor.id === selectedCompanyId ? vendor : null);
+    if (foundVendor) {
+      return {
+        id: foundVendor.id,
+        name: foundVendor.name,
+        tagline: foundVendor.tagline || "ILLUMINATING YOUR FUTURE WITH CLEAN ENERGY",
+        gstin: foundVendor.gstin || "",
+        headOffice: foundVendor.head_office || "",
+        registeredOffice: foundVendor.registered_office || "",
+        phone: foundVendor.phone || "",
+        alternatePhone: foundVendor.alternate_phone || "",
+        email: foundVendor.email || "",
+        bank: {
+          name: foundVendor.bank_name || "HDFC Bank",
+          branch: foundVendor.bank_branch || "",
+          accountName: foundVendor.account_name || foundVendor.name,
+          accountNumber: foundVendor.account_number || "",
+          ifsc: foundVendor.ifsc || "",
+          upiId: foundVendor.upi_id || "",
+        },
+        logo: foundVendor.logo_url || "/logo.png",
+        signature: foundVendor.signature_url || "/signature.png",
+        authorizedSignatory: foundVendor.authorized_signatory || "Authorized Signatory",
+      };
+    }
+    return companies.find(c => c.id === selectedCompanyId) || companies[0];
+  }, [selectedCompanyId, allVendors, vendor]);
 
   // Customer Details
   const [customerName, setCustomerName] = useState("");
@@ -765,6 +808,7 @@ function QuotationBuilder() {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          vendor_id: activeCompany.id,
           customer_name: customerName,
           customer_phone: customerPhone,
           customer_address: customerAddress,
@@ -1130,42 +1174,63 @@ function QuotationBuilder() {
       <Box className="no-print" sx={{ width: { xs: "100%", md: 380 }, minWidth: { xs: "100%", md: 380 }, bgcolor: "white", borderRight: { xs: "none", md: "1px solid #e2e8f0" }, borderBottom: { xs: "1px solid #e2e8f0", md: "none" }, display: "flex", flexDirection: "column", overflow: "hidden", height: { xs: "auto", md: "100%" } }}>
         {/* Header */}
         <Box sx={{ p: 2, borderBottom: "1px solid #e2e8f0", bgcolor: "#1e3a5f", color: "white" }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <Typography variant="h6" fontWeight="bold" sx={{ fontSize: 16 }}>
-              <SolarPower sx={{ mr: 1, verticalAlign: "middle", fontSize: 20 }} />
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+            <Typography variant="h6" fontWeight="bold" sx={{ fontSize: 15, display: "flex", alignItems: "center" }}>
+              <SolarPower sx={{ mr: 0.8, fontSize: 18 }} />
               Quotation Builder
             </Typography>
-            <Box sx={{ display: "flex", gap: 1 }}>
-              <Link href="/service" style={{ textDecoration: 'none' }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    color: "white",
-                    borderColor: "rgba(255,255,255,0.5)",
-                    "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
-                    textTransform: "none",
-                    fontWeight: "bold",
-                    px: 1.5,
-                    fontSize: 11
-                  }}
-                >
-                  Service
-                </Button>
-              </Link>
+            <Box sx={{ display: "flex", gap: 0.8, alignItems: "center" }}>
+              {user ? (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  <Chip
+                    icon={<Storefront sx={{ fontSize: "14px !important", color: "#ff9800 !important" }} />}
+                    label={vendor?.name || user.email}
+                    size="small"
+                    sx={{ bgcolor: "rgba(255,152,0,0.18)", color: "#ff9800", fontWeight: 700, fontSize: 10.5, height: 24 }}
+                  />
+                  <IconButton
+                    size="small"
+                    title="Sign Out"
+                    onClick={() => signOut()}
+                    sx={{ color: "rgba(255,255,255,0.7)", p: 0.5, "&:hover": { color: "#fff" } }}
+                  >
+                    <Logout sx={{ fontSize: 15 }} />
+                  </IconButton>
+                </Box>
+              ) : (
+                <Link href="/login" style={{ textDecoration: 'none' }}>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<LoginIcon sx={{ fontSize: 13 }} />}
+                    sx={{
+                      bgcolor: "#ff9800",
+                      "&:hover": { bgcolor: "#f57c00" },
+                      textTransform: "none",
+                      fontWeight: 800,
+                      px: 1.2,
+                      py: 0.2,
+                      fontSize: 10.5
+                    }}
+                  >
+                    Vendor Login
+                  </Button>
+                </Link>
+              )}
               <Link href="/admin" style={{ textDecoration: 'none' }}>
                 <Button
                   variant="outlined"
                   size="small"
-                  startIcon={<AdminPanelSettings fontSize="small" />}
+                  startIcon={<AdminPanelSettings sx={{ fontSize: 14 }} />}
                   sx={{
                     color: "white",
-                    borderColor: "rgba(255,255,255,0.5)",
+                    borderColor: "rgba(255,255,255,0.4)",
                     "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
                     textTransform: "none",
                     fontWeight: "bold",
-                    px: 1.5,
-                    fontSize: 11
+                    px: 1,
+                    py: 0.2,
+                    fontSize: 10.5
                   }}
                 >
                   Admin
@@ -1194,12 +1259,33 @@ function QuotationBuilder() {
 
         {/* Scrollable Form */}
         <Box sx={{ flex: 1, overflow: "auto", p: 0 }}>
-          {/* Company Selection */}
+          {/* Company / Vendor Selection */}
           <Box sx={{ p: 2, borderBottom: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
             <FormControl fullWidth size="small">
-              <InputLabel>Company</InputLabel>
-              <Select value={selectedCompanyId} label="Company" onChange={(e) => setSelectedCompanyId(e.target.value)}>
-                {companies.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+              <InputLabel>Active Vendor / Brand</InputLabel>
+              <Select
+                value={selectedCompanyId}
+                label="Active Vendor / Brand"
+                onChange={(e) => {
+                  const newId = e.target.value;
+                  setSelectedCompanyId(newId);
+                  const found = allVendors.find(v => v.id === newId);
+                  if (found) switchVendor(found);
+                }}
+              >
+                {allVendors && allVendors.length > 0 ? (
+                  allVendors.map((v) => (
+                    <MenuItem key={v.id} value={v.id}>
+                      {v.name} {v.authorized_signatory ? `(${v.authorized_signatory})` : ""}
+                    </MenuItem>
+                  ))
+                ) : (
+                  companies.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.name}
+                    </MenuItem>
+                  ))
+                )}
               </Select>
             </FormControl>
           </Box>

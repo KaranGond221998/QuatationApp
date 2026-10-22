@@ -151,3 +151,76 @@ WHERE NOT EXISTS (SELECT 1 FROM system_types WHERE name = 'Hybrid');
 INSERT INTO system_types (name, description)
 SELECT 'VFD/Drive', 'Solar Pump Drive'
 WHERE NOT EXISTS (SELECT 1 FROM system_types WHERE name = 'VFD/Drive');
+
+-- 8. Vendors Table
+CREATE TABLE IF NOT EXISTS vendors (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE,
+  tagline TEXT,
+  gstin TEXT,
+  phone TEXT,
+  alternate_phone TEXT,
+  email TEXT,
+  head_office TEXT,
+  registered_office TEXT,
+  bank_name TEXT,
+  bank_branch TEXT,
+  account_name TEXT,
+  account_number TEXT,
+  ifsc TEXT,
+  upi_id TEXT,
+  logo_url TEXT DEFAULT '/logo.png',
+  signature_url TEXT DEFAULT '/signature.png',
+  authorized_signatory TEXT,
+  default_margin DECIMAL(12,2) DEFAULT 0,
+  status TEXT DEFAULT 'active',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 9. Vendor Users Table (links Supabase auth.users to vendors)
+CREATE TABLE IF NOT EXISTS vendor_users (
+  id UUID PRIMARY KEY, -- references auth.users(id)
+  vendor_id UUID REFERENCES vendors(id) ON DELETE CASCADE,
+  role TEXT DEFAULT 'vendor', -- 'super_admin', 'vendor', 'salesperson'
+  full_name TEXT,
+  email TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Alter quotations for multi-vendor support
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vendor_id UUID REFERENCES vendors(id) ON DELETE SET NULL;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS created_by UUID;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vendor_snapshot JSONB;
+
+-- Seed initial vendor: Karan Solar Shop
+INSERT INTO vendors (
+  id, name, slug, tagline, head_office, registered_office,
+  phone, alternate_phone, email, bank_name, bank_branch,
+  account_name, account_number, ifsc, upi_id,
+  logo_url, signature_url, authorized_signatory, status
+)
+VALUES (
+  'a0000000-0000-0000-0000-000000000001',
+  'Karan Solar Shop',
+  'karan-solar',
+  'ILLUMINATING YOUR FUTURE WITH CLEAN ENERGY',
+  'Varanasi, Uttar Pradesh, India',
+  'Varanasi, Uttar Pradesh, India',
+  '+91 9005770466',
+  '9044555572',
+  'karangond221998@gmail.com',
+  'HDFC Bank',
+  'Shivpur, Varanasi',
+  'KARAN SOLAR SHOP',
+  '50200123854806',
+  'HDFC0004807',
+  'karan.solar@hdfcbank',
+  '/logo.png',
+  '/signature.png',
+  'Karan Gond',
+  'active'
+)
+ON CONFLICT (id) DO NOTHING;
+
