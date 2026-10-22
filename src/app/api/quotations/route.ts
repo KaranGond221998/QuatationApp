@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         const supabase = getServerSupabase();
 
         // Resolve vendor details and node_id
-        let targetVendorId = vendor_id || 'a0000000-0000-0000-0000-000000000001';
+        const targetVendorId = vendor_id || 'a0000000-0000-0000-0000-000000000001';
         let vendorNodeId = 'NODE-VNS-001';
         let vendorSnapshot: any = null;
 
@@ -172,8 +172,8 @@ export async function POST(request: Request) {
                 gst_rate: effectiveGstRate,
                 gst_amount,
                 total_amount,
-                central_subsidy: central_subsidy ?? getSubsidyForCapacity(capacity_kw || 3).central,
-                state_subsidy: state_subsidy ?? getSubsidyForCapacity(capacity_kw || 3).state,
+                central_subsidy: central_subsidy !== undefined ? Number(central_subsidy) : (capacity_kw ? getSubsidyForCapacity(capacity_kw).central : 0),
+                state_subsidy: state_subsidy !== undefined ? Number(state_subsidy) : (capacity_kw ? getSubsidyForCapacity(capacity_kw).state : 0),
                 terms: terms || null,
                 components: components || null,
                 savings_data: savings,

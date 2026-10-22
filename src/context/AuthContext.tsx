@@ -142,8 +142,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } catch {
                 // Ignore offline vendor load failure
             }
-        } catch (err) {
+            return userRole;
+        } catch {
             console.warn('Notice: running with default vendor settings');
+            return null;
         } finally {
             isFetchingRef.current = false;
             setLoading(false);
@@ -180,10 +182,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return { success: false, error: error.message };
             }
 
+            let resolvedRole = null;
             if (data.user) {
-                await loadUserData(data.user);
+                resolvedRole = await loadUserData(data.user);
             }
-            return { success: true };
+            return { success: true, role: resolvedRole };
         } catch (err: any) {
             return { success: false, error: err.message || 'Login failed' };
         }

@@ -53,8 +53,9 @@ export default function LoginPage() {
         if (!res.success) {
             setErrorMsg(res.error || 'Invalid email or password.');
         } else {
-            // Route based on actual user role, not email string
-            if (role === 'super_admin') {
+            // Route based on actual resolved user role
+            const effectiveRole = (res as any)?.role || role;
+            if (effectiveRole === 'super_admin') {
                 router.push('/admin');
             } else {
                 router.push('/vendor/dashboard');

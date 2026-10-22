@@ -57,7 +57,7 @@ export async function POST(request: Request) {
             `${Date.now()}.${ext}`
         );
 
-        const { data, error } = await supabase.storage
+        const { error } = await supabase.storage
             .from('vendor-assets')
             .upload(fileName, buffer, {
                 contentType: file.type || `image/${ext === 'svg' ? 'svg+xml' : ext}`,

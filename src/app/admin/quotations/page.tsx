@@ -46,7 +46,7 @@ type Quotation = {
 };
 
 export default function QuotationsAdminPage() {
-    const { user, role, vendor: authVendor } = useAuth();
+    const { role, vendor: authVendor } = useAuth();
     const [quotations, setQuotations] = useState<Quotation[]>([]);
     const [vendors, setVendors] = useState<any[]>([]);
     const [selectedVendorId, setSelectedVendorId] = useState<string>("all");

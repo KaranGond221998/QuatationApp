@@ -147,7 +147,7 @@ export async function POST(request: Request) {
 
         if (vendorError) throw vendorError;
 
-        let authUser: any = null;
+        let createdAuthUser: any = null;
 
         // 2. If email and password provided, create Supabase Auth User
         if (email && password) {
@@ -165,10 +165,10 @@ export async function POST(request: Request) {
             if (authError) {
                 console.warn('Auth user creation warning:', authError.message);
             } else if (authData?.user) {
-                authUser = authData.user;
+                createdAuthUser = authData.user;
                 // Insert into vendor_users
                 await supabase.from('vendor_users').insert([{
-                    id: authUser.id,
+                    id: createdAuthUser.id,
                     vendor_id: newVendor.id,
                     role: role,
                     full_name: authorized_signatory || name,
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
             success: true,
             message: 'Vendor created successfully',
             data: newVendor,
-            authCreated: !!authUser,
+            authCreated: !!createdAuthUser,
         });
     } catch (error: any) {
         console.error('Create vendor error:', error);

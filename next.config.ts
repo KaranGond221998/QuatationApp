@@ -1,33 +1,7 @@
-// import type { NextConfig } from "next";
+import type { NextConfig } from "next";
 
-// const nextConfig: NextConfig = {
-//   output: 'standalone',
-//   experimental: {
-//     serverComponentsExternalPackages: ['@sparticuz/chromium']
-//   },
-// };
-
-// export default nextConfig;
-
-
-
-
-
-
-
-
-
-// ✅ New / Correct configuration in next.config.ts
-
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
   serverExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
 };
 
 export default nextConfig;

@@ -19,7 +19,7 @@ export const generateQuoteHtml = (data: any): string => {
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('en-IN').format(Math.round(val));
   const currentDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const quoteNumber = `ASS-${(customerInfo?.name || 'X').charAt(0).toUpperCase()}${Date.now().toString().slice(-6)}`;
+  const quoteNumber = data.quoteNumber || data.quote_number || `${company.quote_prefix || company.quotePrefix || 'KSS'}-${(customerInfo?.name || 'X').charAt(0).toUpperCase()}${Date.now().toString().slice(-6)}`;
 
   // System info
   const systemSize = selectedProduct?.capacity || 0;

@@ -69,22 +69,29 @@ export async function POST(request: Request) {
         if (supabaseUrl && supabaseKey) {
           const supabase = createClient(supabaseUrl, supabaseKey);
 
-          // Try to update by phone number (last 10 digits)
+          // Find latest quotation by phone number (last 10 digits)
           const last10 = recipient.slice(-10);
-          const { error, count } = await supabase
+          const { data: latestQuote, error: findError } = await supabase
             .from('quotations')
-            .update({
-              status: dbStatus,
-              // Store the last webhook update for debugging
-            })
+            .select('id')
             .or(`customer_phone.eq.${last10},customer_phone.eq.+91${last10},customer_phone.eq.91${last10}`)
             .order('created_at', { ascending: false })
-            .limit(1);
+            .limit(1)
+            .maybeSingle();
 
-          if (error) {
-            console.error("Failed to update Supabase status:", (error as any).message);
-          } else {
-            console.log(`✅ Updated quotation status to '${dbStatus}' for phone ending ${last10} (rows: ${count || 'unknown'})`);
+          if (findError) {
+            console.error("Failed to find quotation for phone:", findError.message);
+          } else if (latestQuote?.id) {
+            const { error: updateError } = await supabase
+              .from('quotations')
+              .update({ status: dbStatus })
+              .eq('id', latestQuote.id);
+
+            if (updateError) {
+              console.error("Failed to update quotation status:", updateError.message);
+            } else {
+              console.log(`✅ Updated quotation ${latestQuote.id} status to '${dbStatus}' for phone ending ${last10}`);
+            }
           }
         } else {
           console.warn("⚠️ Missing Supabase environment variables - cannot update DB status");

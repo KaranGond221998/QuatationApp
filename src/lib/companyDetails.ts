@@ -48,11 +48,19 @@ export const defaultSubsidy = {
     state: 30000,    // State Government
 };
 
-// Capacity-based subsidy lookup
-// ≤ 2 KW (including decimals like 1.5 KW): Central = ₹60,000, State = ₹30,000
-// ≥ 3 KW: Central = ₹78,000, State = ₹30,000
+// Capacity-based subsidy lookup under PM Surya Ghar: Muft Bijli Yojana (MNRE)
+// < 2 KW (e.g. 1 KW): Central = ₹30,000, State = ₹15,000 (Total ₹45,000)
+// 2 KW to < 3 KW (e.g. 2 KW): Central = ₹60,000, State = ₹30,000 (Total ₹90,000)
+// ≥ 3 KW (capped): Central = ₹78,000, State = ₹30,000 (Total ₹1,08,000)
 export const getSubsidyForCapacity = (capacityKw: number): { central: number; state: number } => {
-    if (capacityKw < 3) {
+    const cap = Math.max(0, Number(capacityKw) || 0);
+    if (cap <= 0) {
+        return { central: 0, state: 0 };
+    }
+    if (cap < 2) {
+        return { central: 30000, state: 15000 };
+    }
+    if (cap < 3) {
         return { central: 60000, state: 30000 };
     }
     return { central: 78000, state: 30000 };
@@ -247,11 +255,16 @@ export const calculateSavings = (
     netCost: number;
     roiYears: number;
 } => {
-    const unitsPerDay = capacityKw * savingsConfig.unitsPerKwPerDay;
+    const safeCapacity = Math.max(0, Number(capacityKw) || 0);
+    const safeCost = Math.max(0, Number(totalCost) || 0);
+    const safeCentral = Math.max(0, Number(centralSubsidy) || 0);
+    const safeState = Math.max(0, Number(stateSubsidy) || 0);
+
+    const unitsPerDay = safeCapacity * savingsConfig.unitsPerKwPerDay;
     const annualUnits = unitsPerDay * savingsConfig.daysPerYear;
     const annualSavings = annualUnits * savingsConfig.gridCostPerUnit;
-    const totalSubsidy = centralSubsidy + stateSubsidy;
-    const netCost = Math.max(0, totalCost - totalSubsidy);
+    const totalSubsidy = safeCentral + safeState;
+    const netCost = Math.max(0, safeCost - totalSubsidy);
     const roiYears = annualSavings > 0 ? netCost / annualSavings : 0;
 
     return {

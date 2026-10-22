@@ -1,5 +1,5 @@
 import { getServerSupabase } from './supabase';
-// @ts-ignore
+// @ts-expect-error - pg types are optional at build time
 import { Client } from 'pg';
 
 const CITY_CODES: Record<string, string> = {

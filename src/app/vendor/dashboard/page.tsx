@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
     Container,
     Box,
@@ -13,23 +12,20 @@ import {
     Grid,
     Chip,
     CircularProgress,
-    Stack,
-    Divider,
-    IconButton
+    Stack
 } from '@mui/material';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import LogoutIcon from '@mui/icons-material/Logout';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import EditNoteIcon from '@mui/icons-material/EditNote';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { useAuth } from '@/context/AuthContext';
 
 export default function VendorDashboardPage() {
     const router = useRouter();
-    const { user, vendor, role, signOut, loading: authLoading } = useAuth();
+    const { user, vendor, signOut, loading: authLoading } = useAuth();
 
     const [stats, setStats] = useState({
         totalQuotes: 0,

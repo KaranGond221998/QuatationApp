@@ -13,11 +13,7 @@ import {
     Grid,
     Alert,
     CircularProgress,
-    Divider,
-    Stack,
     Chip,
-    IconButton,
-    Tooltip
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
@@ -25,8 +21,6 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import VerifiedIcon from '@mui/icons-material/Verified';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useAuth } from '@/context/AuthContext';
 
 export default function VendorProfilePage() {
@@ -264,7 +258,7 @@ export default function VendorProfilePage() {
                                 <Chip label="Private Tenant Storage Sandbox" size="small" sx={{ bgcolor: '#ffedd5', color: '#c2410c', fontWeight: 600, fontSize: 11 }} />
                             </Box>
                             <Typography variant="body2" sx={{ color: '#64748b', mb: 3 }}>
-                                Upload your shop's custom logo, authorized stamp, signature, and UPI payment barcode. All assets are isolated strictly inside your tenant storage folder.
+                                Upload your shop&apos;s custom logo, authorized stamp, signature, and UPI payment barcode. All assets are isolated strictly inside your tenant storage folder.
                             </Typography>
 
                             <Grid container spacing={2.5}>

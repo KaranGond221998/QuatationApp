@@ -15,7 +15,6 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Paper,
     Chip,
     Dialog,
     DialogTitle,
@@ -36,7 +35,6 @@ import {
     InputAdornment,
 } from '@mui/material';
 import AddBusinessIcon from '@mui/icons-material/AddBusiness';
-import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -49,7 +47,6 @@ import SaveIcon from '@mui/icons-material/Save';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import LaunchIcon from '@mui/icons-material/Launch';
-import LockResetIcon from '@mui/icons-material/LockReset';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -58,14 +55,13 @@ import PersonIcon from '@mui/icons-material/Person';
 import LockIcon from '@mui/icons-material/Lock';
 import CheckIcon from '@mui/icons-material/Check';
 import { useAuth } from '@/context/AuthContext';
-import { Vendor } from '@/types';
 
 export default function AdminVendorsPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const initialVendorParam = searchParams.get('vendor_id');
 
-    const { user, role, switchVendor, vendor: activeVendor } = useAuth();
+    const { switchVendor } = useAuth();
 
     const consoleRef = useRef<HTMLDivElement>(null);
     const tableRef = useRef<HTMLDivElement>(null);
@@ -174,6 +170,7 @@ export default function AdminVendorsPage() {
 
     useEffect(() => {
         loadVendors();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialVendorParam]);
 
     const selectVendorForRemoteControl = (v: any) => {
@@ -1014,7 +1011,7 @@ export default function AdminVendorsPage() {
                                                 </Typography>
                                             </Box>
                                             <Typography variant="body2" sx={{ color: '#64748b', mb: 2 }}>
-                                                Printed on the vendor's customer quotations for direct payments.
+                                                Printed on the vendor&apos;s customer quotations for direct payments.
                                             </Typography>
 
                                             <Grid container spacing={2}>

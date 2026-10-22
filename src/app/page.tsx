@@ -175,7 +175,7 @@ function QuotationBuilder() {
     if (vendor?.id && vendor.id !== selectedCompanyId) {
       setSelectedCompanyId(vendor.id);
     }
-  }, [vendor]);
+  }, [vendor, selectedCompanyId]);
 
   const activeCompany = useMemo(() => {
     const targetId = effectiveCompanyId || selectedCompanyId;
@@ -422,8 +422,8 @@ function QuotationBuilder() {
   const [editTermIdx, setEditTermIdx] = useState(-1);
   const [editTermText, setEditTermText] = useState("");
 
-  const serviceSubtotal = useMemo(() => serviceItems.reduce((s, i) => s + i.amount, 0), [serviceItems]);
-  const serviceGstAmount = useMemo(() => +(serviceSubtotal * serviceGst / 100).toFixed(2), [serviceSubtotal, serviceGst]);
+  const serviceSubtotal = useMemo(() => +serviceItems.reduce((s, i) => s + (Number(i.amount) || 0), 0).toFixed(2), [serviceItems]);
+  const serviceGstAmount = useMemo(() => +(serviceSubtotal * (Number(serviceGst) || 0) / 100).toFixed(2), [serviceSubtotal, serviceGst]);
   const serviceGrandTotal = useMemo(() => +(serviceSubtotal + serviceGstAmount).toFixed(2), [serviceSubtotal, serviceGstAmount]);
   const serviceRefNumber = useMemo(() => {
     const prefix = (activeCompany as any).quote_prefix || (activeCompany as any).quotePrefix || "KSS";
@@ -492,11 +492,15 @@ function QuotationBuilder() {
     gstRate: 18,
   });
 
-  const b2bSubtotal = useMemo(() => b2bItems.reduce((acc, item) => acc + (item.basePrice * item.qty), 0), [b2bItems]);
+  const b2bSubtotal = useMemo(() => {
+    const sum = b2bItems.reduce((acc, item) => acc + ((Number(item.basePrice) || 0) * (Number(item.qty) || 0)), 0);
+    return +sum.toFixed(2);
+  }, [b2bItems]);
   const b2bGstAmount = useMemo(() => {
     const totalGst = b2bItems.reduce((acc, item) => {
       const rate = item.gstRate !== undefined ? Number(item.gstRate) : 18;
-      return acc + ((item.basePrice * item.qty * rate) / 100);
+      const itemBase = (Number(item.basePrice) || 0) * (Number(item.qty) || 0);
+      return acc + ((itemBase * rate) / 100);
     }, 0);
     return +totalGst.toFixed(2);
   }, [b2bItems]);
@@ -661,13 +665,19 @@ function QuotationBuilder() {
     }
   }, [capacityKw, selectedSystemType, inverterModelEdited]);
 
-  // Handle Subsidy Logic: No subsidy for NDCR/Off-grid, capacity-based for others
+  // Handle Subsidy Logic: No subsidy for NDCR, Off-grid, VFD/Drive, ApolloB2B, Service
   useEffect(() => {
-    if (panelType === "NDCR" || selectedSystemType === "Off-grid") {
+    if (
+      panelType === "NDCR" ||
+      selectedSystemType === "Off-grid" ||
+      selectedSystemType === "VFD/Drive" ||
+      selectedSystemType === "ApolloB2B" ||
+      selectedSystemType === "Service"
+    ) {
       setCentralSubsidy(0);
       setStateSubsidy(0);
     } else {
-      // Use capacity-based subsidy: ≤2 KW = ₹60,000 central, ≥3 KW = ₹78,000 central
+      // Use official PM Surya Ghar capacity-based subsidy tiers
       const subsidy = getSubsidyForCapacity(capacityKw);
       setCentralSubsidy(subsidy.central);
       setStateSubsidy(subsidy.state);
@@ -676,37 +686,42 @@ function QuotationBuilder() {
 
   // Calculate extra costs
   const extraCosts = useMemo(() => {
-    const structureCost = extraStructureEnabled ? (actualSystemSize * 1000 * extraStructureRate) : 0;
-    const panelsCost = extraPanelsEnabled ? (extraPanelCount * extraPanelPrice) : 0;
-    const wireCost = extraWireEnabled ? (extraWireLength * extraWireRate) : 0;
-    return { structureCost, panelsCost, wireCost, total: structureCost + panelsCost + wireCost };
+    const structureCost = extraStructureEnabled ? ((Number(actualSystemSize) || 0) * 1000 * (Number(extraStructureRate) || 0)) : 0;
+    const panelsCost = extraPanelsEnabled ? ((Number(extraPanelCount) || 0) * (Number(extraPanelPrice) || 0)) : 0;
+    const wireCost = extraWireEnabled ? ((Number(extraWireLength) || 0) * (Number(extraWireRate) || 0)) : 0;
+    const total = +(structureCost + panelsCost + wireCost).toFixed(2);
+    return { structureCost, panelsCost, wireCost, total };
   }, [extraStructureEnabled, extraStructureRate, actualSystemSize, extraPanelsEnabled, extraPanelCount, extraPanelPrice, extraWireEnabled, extraWireLength, extraWireRate]);
 
   // Calculate GST and totals (Reverse calculation from Inclusive Price)
   const calculations = useMemo(() => {
     // Reverse calculate base price from the input (which is GST inclusive)
     // Formula: Inclusive = Base * (1 + Rate)  =>  Base = Inclusive / (1 + Rate)
-    const derivedBasePrice = priceInput / (1 + gstRate / 100);
+    const safePriceInput = Math.max(0, Number(priceInput) || 0);
+    const safeGstRate = Math.max(0, Number(gstRate) || 0);
+    const derivedBasePrice = safeGstRate > 0 ? +(safePriceInput / (1 + safeGstRate / 100)).toFixed(2) : safePriceInput;
 
-    // Add extra costs (assuming they act as taxable base additions) to the derived base
-    const totalTaxableValue = derivedBasePrice + extraCosts.total;
+    // Add extra costs to the derived base
+    const totalTaxableValue = +(derivedBasePrice + (extraCosts.total || 0)).toFixed(2);
 
-    const gstAmount = +(totalTaxableValue * (gstRate / 100)).toFixed(2);
+    const gstAmount = +(totalTaxableValue * (safeGstRate / 100)).toFixed(2);
     const totalAmount = +(totalTaxableValue + gstAmount).toFixed(2);
 
-    const savings = calculateSavings(actualSystemSize, totalAmount, centralSubsidy, stateSubsidy);
-    const effectiveCost = Math.max(0, totalAmount - centralSubsidy - stateSubsidy);
+    const safeCentral = Math.max(0, Number(centralSubsidy) || 0);
+    const safeState = Math.max(0, Number(stateSubsidy) || 0);
+    const savings = calculateSavings(actualSystemSize, totalAmount, safeCentral, safeState);
+    const effectiveCost = Math.max(0, +(totalAmount - safeCentral - safeState).toFixed(2));
 
     return {
-      basePrice: totalTaxableValue, // This is the total taxable base used for calculation
-      originalBasePrice: derivedBasePrice, // This is the base price of the system only
+      basePrice: totalTaxableValue, // Total taxable base used for calculation
+      originalBasePrice: derivedBasePrice, // Base price of the system only
       extraCostsTotal: extraCosts.total,
-      gstRate,
+      gstRate: safeGstRate,
       gstAmount,
       totalAmount,
       ...savings,
       effectiveCost,
-      systemPriceIncGst: priceInput // Keep track of the input
+      systemPriceIncGst: safePriceInput // Keep track of the input
     };
   }, [priceInput, extraCosts.total, gstRate, actualSystemSize, centralSubsidy, stateSubsidy]);
 
