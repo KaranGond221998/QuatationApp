@@ -9,6 +9,7 @@ import {
   Grid,
   Button,
   CircularProgress,
+  Chip,
 } from "@mui/material";
 import {
   Inventory,
@@ -116,20 +117,30 @@ export default function AdminDashboard() {
     <Box sx={{ p: 3, bgcolor: "#f5f7fa", minHeight: "100vh" }}>
       <Box sx={{ maxWidth: 1200, mx: "auto" }}>
         {/* Header */}
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4, flexWrap: "wrap", gap: 2 }}>
           <Box>
-            <Typography variant="h4" fontWeight="bold" color="#1a237e">
-              {companyDetails.name}
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
+              <Typography variant="h4" fontWeight="bold" color="#0f172a">
+                Platform Owner & Developer Console
+              </Typography>
+              <Chip label="Master Layer" size="small" sx={{ bgcolor: "#0f172a", color: "#fff", fontWeight: 700 }} />
+            </Box>
             <Typography variant="body2" color="text.secondary">
-              Admin Dashboard
+              Master control plane for managing multi-tenant vendors, global catalogs, and system oversight
             </Typography>
           </Box>
-          <Link href="/">
-            <Button variant="outlined" startIcon={<Home />}>
-              Back to Home
-            </Button>
-          </Link>
+          <Box sx={{ display: "flex", gap: 1.5 }}>
+            <Link href="/vendor/dashboard" style={{ textDecoration: 'none' }}>
+              <Button variant="outlined" sx={{ borderColor: "#ff9800", color: "#ff9800", fontWeight: 700 }}>
+                Vendor Workspace
+              </Button>
+            </Link>
+            <Link href="/" style={{ textDecoration: 'none' }}>
+              <Button variant="contained" startIcon={<Home />} sx={{ bgcolor: "#0f172a", '&:hover': { bgcolor: '#1e293b' }, fontWeight: 700 }}>
+                Quotation Builder
+              </Button>
+            </Link>
+          </Box>
         </Box>
 
         {/* Stats Cards */}

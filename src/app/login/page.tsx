@@ -53,7 +53,11 @@ export default function LoginPage() {
         if (!res.success) {
             setErrorMsg(res.error || 'Invalid email or password.');
         } else {
-            router.push('/');
+            if (email.toLowerCase().includes('admin')) {
+                router.push('/admin');
+            } else {
+                router.push('/');
+            }
         }
     };
 
@@ -230,51 +234,23 @@ export default function LoginPage() {
                                 </Button>
 
                                 <Divider sx={{ my: 3, borderColor: 'rgba(255,255,255,0.1)' }}>
-                                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', px: 1 }}>
-                                        QUICK TEST ACCOUNTS
+                                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', px: 1, fontWeight: 700, letterSpacing: '0.5px' }}>
+                                        ONE-CLICK DEMO ACCESS (2 LAYERS)
                                     </Typography>
                                 </Divider>
 
                                 <Stack spacing={1.5}>
-                                    <Box
-                                        onClick={() => fillCredentials('karan@solar.com', 'VendorPassword@123')}
-                                        sx={{
-                                            p: 1.5,
-                                            borderRadius: 2,
-                                            bgcolor: 'rgba(255,255,255,0.04)',
-                                            border: '1px solid rgba(255,255,255,0.08)',
-                                            cursor: 'pointer',
-                                            transition: '0.2s',
-                                            '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,152,0,0.4)' },
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                        }}
-                                    >
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                            <StorefrontIcon sx={{ color: '#ff9800' }} />
-                                            <Box>
-                                                <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 600 }}>
-                                                    Karan Solar Shop (Vendor)
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                                                    karan@solar.com
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        <Chip label="Auto Fill" size="small" sx={{ bgcolor: 'rgba(255,152,0,0.15)', color: '#ff9800', fontWeight: 600 }} />
-                                    </Box>
-
+                                    {/* Layer 1: Developer / Owner */}
                                     <Box
                                         onClick={() => fillCredentials('admin@karansolar.com', 'AdminPassword@123')}
                                         sx={{
                                             p: 1.5,
                                             borderRadius: 2,
-                                            bgcolor: 'rgba(255,255,255,0.04)',
-                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            bgcolor: 'rgba(33, 150, 243, 0.08)',
+                                            border: '1px solid rgba(33, 150, 243, 0.25)',
                                             cursor: 'pointer',
                                             transition: '0.2s',
-                                            '&:hover': { bgcolor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(33,150,243,0.4)' },
+                                            '&:hover': { bgcolor: 'rgba(33, 150, 243, 0.15)', borderColor: '#2196f3' },
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'space-between',
@@ -283,15 +259,51 @@ export default function LoginPage() {
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                             <AdminPanelSettingsIcon sx={{ color: '#2196f3' }} />
                                             <Box>
-                                                <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 600 }}>
-                                                    Super Administrator
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                                                    admin@karansolar.com
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                                    <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700 }}>
+                                                        Layer 1: Developer Owner
+                                                    </Typography>
+                                                    <Chip label="Platform Owner" size="small" sx={{ bgcolor: 'rgba(33,150,243,0.2)', color: '#60a5fa', fontWeight: 800, fontSize: '0.65rem', height: 18 }} />
+                                                </Box>
+                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                                                    admin@karansolar.com • Manages all vendors & catalogs
                                                 </Typography>
                                             </Box>
                                         </Box>
-                                        <Chip label="Auto Fill" size="small" sx={{ bgcolor: 'rgba(33,150,243,0.15)', color: '#2196f3', fontWeight: 600 }} />
+                                        <Chip label="Select" size="small" sx={{ bgcolor: '#2196f3', color: '#fff', fontWeight: 700, fontSize: '0.72rem' }} />
+                                    </Box>
+
+                                    {/* Layer 2: Vendor */}
+                                    <Box
+                                        onClick={() => fillCredentials('karan@solar.com', 'VendorPassword@123')}
+                                        sx={{
+                                            p: 1.5,
+                                            borderRadius: 2,
+                                            bgcolor: 'rgba(255, 152, 0, 0.08)',
+                                            border: '1px solid rgba(255, 152, 0, 0.25)',
+                                            cursor: 'pointer',
+                                            transition: '0.2s',
+                                            '&:hover': { bgcolor: 'rgba(255, 152, 0, 0.15)', borderColor: '#ff9800' },
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                        }}
+                                    >
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <StorefrontIcon sx={{ color: '#ff9800' }} />
+                                            <Box>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                                                    <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 700 }}>
+                                                        Layer 2: Vendor Workspace
+                                                    </Typography>
+                                                    <Chip label="Solar Shop" size="small" sx={{ bgcolor: 'rgba(255,152,0,0.2)', color: '#ffb74d', fontWeight: 800, fontSize: '0.65rem', height: 18 }} />
+                                                </Box>
+                                                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                                                    karan@solar.com • Karan Solar Shop (Varanasi)
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                        <Chip label="Select" size="small" sx={{ bgcolor: '#ff9800', color: '#fff', fontWeight: 700, fontSize: '0.72rem' }} />
                                     </Box>
                                 </Stack>
                             </form>

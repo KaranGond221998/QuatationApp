@@ -1179,63 +1179,141 @@ function QuotationBuilder() {
               <SolarPower sx={{ mr: 0.8, fontSize: 18 }} />
               Quotation Builder
             </Typography>
-            <Box sx={{ display: "flex", gap: 0.8, alignItems: "center" }}>
+            <Box sx={{ display: "flex", gap: 0.8, alignItems: "center", flexWrap: "wrap" }}>
               {user ? (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  <Chip
-                    icon={<Storefront sx={{ fontSize: "14px !important", color: "#ff9800 !important" }} />}
-                    label={vendor?.name || user.email}
-                    size="small"
-                    sx={{ bgcolor: "rgba(255,152,0,0.18)", color: "#ff9800", fontWeight: 700, fontSize: 10.5, height: 24 }}
-                  />
-                  <IconButton
-                    size="small"
-                    title="Sign Out"
-                    onClick={() => signOut()}
-                    sx={{ color: "rgba(255,255,255,0.7)", p: 0.5, "&:hover": { color: "#fff" } }}
-                  >
-                    <Logout sx={{ fontSize: 15 }} />
-                  </IconButton>
-                </Box>
+                role === 'super_admin' ? (
+                  /* DEVELOPER / SUPER ADMIN CONTROLS */
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                    <Chip
+                      label="👑 Developer"
+                      size="small"
+                      sx={{ bgcolor: "#0f172a", color: "#fff", fontWeight: 800, fontSize: 10.5, height: 24 }}
+                    />
+                    <Link href="/admin" style={{ textDecoration: 'none' }}>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<AdminPanelSettings sx={{ fontSize: 13 }} />}
+                        sx={{ bgcolor: "#0f172a", '&:hover': { bgcolor: '#1e293b' }, textTransform: 'none', fontWeight: 700, px: 1, py: 0.2, fontSize: 10.5 }}
+                      >
+                        Master Console
+                      </Button>
+                    </Link>
+                    <Link href="/admin/vendors" style={{ textDecoration: 'none' }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        sx={{ color: "white", borderColor: "rgba(255,255,255,0.4)", textTransform: 'none', fontWeight: 600, px: 1, py: 0.2, fontSize: 10.5 }}
+                      >
+                        Vendors
+                      </Button>
+                    </Link>
+                    <Link href="/admin/quotations" style={{ textDecoration: 'none' }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        sx={{ color: "white", borderColor: "rgba(255,255,255,0.4)", textTransform: 'none', fontWeight: 600, px: 1, py: 0.2, fontSize: 10.5 }}
+                      >
+                        All Quotes
+                      </Button>
+                    </Link>
+                    <IconButton
+                      size="small"
+                      title="Sign Out"
+                      onClick={() => signOut()}
+                      sx={{ color: "rgba(255,255,255,0.7)", p: 0.5, "&:hover": { color: "#fff" } }}
+                    >
+                      <Logout sx={{ fontSize: 15 }} />
+                    </IconButton>
+                  </Box>
+                ) : (
+                  /* VENDOR WORKSPACE CONTROLS */
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                    <Chip
+                      icon={<Storefront sx={{ fontSize: "14px !important", color: "#ff9800 !important" }} />}
+                      label={vendor?.name || 'My Shop'}
+                      size="small"
+                      sx={{ bgcolor: "rgba(255,152,0,0.2)", color: "#ff9800", fontWeight: 700, fontSize: 10.5, height: 24 }}
+                    />
+                    <Link href="/vendor/dashboard" style={{ textDecoration: 'none' }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        sx={{ color: "white", borderColor: "rgba(255,255,255,0.4)", textTransform: 'none', fontWeight: 600, px: 1, py: 0.2, fontSize: 10.5 }}
+                      >
+                        Dashboard
+                      </Button>
+                    </Link>
+                    <Link href="/vendor/quotations" style={{ textDecoration: 'none' }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        sx={{ color: "white", borderColor: "rgba(255,255,255,0.4)", textTransform: 'none', fontWeight: 600, px: 1, py: 0.2, fontSize: 10.5 }}
+                      >
+                        My Quotes
+                      </Button>
+                    </Link>
+                    <Link href="/vendor/profile" style={{ textDecoration: 'none' }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        sx={{ color: "white", borderColor: "rgba(255,255,255,0.4)", textTransform: 'none', fontWeight: 600, px: 1, py: 0.2, fontSize: 10.5 }}
+                      >
+                        Shop Profile
+                      </Button>
+                    </Link>
+                    <IconButton
+                      size="small"
+                      title="Sign Out"
+                      onClick={() => signOut()}
+                      sx={{ color: "rgba(255,255,255,0.7)", p: 0.5, "&:hover": { color: "#fff" } }}
+                    >
+                      <Logout sx={{ fontSize: 15 }} />
+                    </IconButton>
+                  </Box>
+                )
               ) : (
-                <Link href="/login" style={{ textDecoration: 'none' }}>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    startIcon={<LoginIcon sx={{ fontSize: 13 }} />}
-                    sx={{
-                      bgcolor: "#ff9800",
-                      "&:hover": { bgcolor: "#f57c00" },
-                      textTransform: "none",
-                      fontWeight: 800,
-                      px: 1.2,
-                      py: 0.2,
-                      fontSize: 10.5
-                    }}
-                  >
-                    Vendor Login
-                  </Button>
-                </Link>
+                /* GUEST LOGIN BUTTON */
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                  <Link href="/login" style={{ textDecoration: 'none' }}>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<LoginIcon sx={{ fontSize: 13 }} />}
+                      sx={{
+                        bgcolor: "#ff9800",
+                        "&:hover": { bgcolor: "#f57c00" },
+                        textTransform: "none",
+                        fontWeight: 800,
+                        px: 1.4,
+                        py: 0.3,
+                        fontSize: 11
+                      }}
+                    >
+                      Vendor Sign In
+                    </Button>
+                  </Link>
+                  <Link href="/login" style={{ textDecoration: 'none' }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<AdminPanelSettings sx={{ fontSize: 13 }} />}
+                      sx={{
+                        color: "white",
+                        borderColor: "rgba(255,255,255,0.4)",
+                        "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
+                        textTransform: "none",
+                        fontWeight: "bold",
+                        px: 1,
+                        py: 0.3,
+                        fontSize: 10.5
+                      }}
+                    >
+                      Developer
+                    </Button>
+                  </Link>
+                </Box>
               )}
-              <Link href="/admin" style={{ textDecoration: 'none' }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<AdminPanelSettings sx={{ fontSize: 14 }} />}
-                  sx={{
-                    color: "white",
-                    borderColor: "rgba(255,255,255,0.4)",
-                    "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
-                    textTransform: "none",
-                    fontWeight: "bold",
-                    px: 1,
-                    py: 0.2,
-                    fontSize: 10.5
-                  }}
-                >
-                  Admin
-                </Button>
-              </Link>
             </Box>
           </Box>
         </Box>
@@ -1261,33 +1339,50 @@ function QuotationBuilder() {
         <Box sx={{ flex: 1, overflow: "auto", p: 0 }}>
           {/* Company / Vendor Selection */}
           <Box sx={{ p: 2, borderBottom: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Active Vendor / Brand</InputLabel>
-              <Select
-                value={selectedCompanyId}
-                label="Active Vendor / Brand"
-                onChange={(e) => {
-                  const newId = e.target.value;
-                  setSelectedCompanyId(newId);
-                  const found = allVendors.find(v => v.id === newId);
-                  if (found) switchVendor(found);
-                }}
-              >
-                {allVendors && allVendors.length > 0 ? (
-                  allVendors.map((v) => (
-                    <MenuItem key={v.id} value={v.id}>
-                      {v.name} {v.authorized_signatory ? `(${v.authorized_signatory})` : ""}
-                    </MenuItem>
-                  ))
-                ) : (
-                  companies.map((c) => (
-                    <MenuItem key={c.id} value={c.id}>
-                      {c.name}
-                    </MenuItem>
-                  ))
-                )}
-              </Select>
-            </FormControl>
+            {role === 'vendor' ? (
+              <Box sx={{ p: 1.2, borderRadius: 2, bgcolor: 'rgba(255, 152, 0, 0.08)', border: '1px solid rgba(255, 152, 0, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Storefront sx={{ color: '#ff9800', fontSize: 20 }} />
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1e293b', fontSize: 12 }}>
+                      {activeCompany.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#64748b', fontSize: 10.5 }}>
+                      Signatory: {activeCompany.authorizedSignatory}
+                    </Typography>
+                  </Box>
+                </Box>
+                <Chip label="Your Shop" size="small" sx={{ bgcolor: '#ff9800', color: '#fff', fontWeight: 700, fontSize: 10, height: 20 }} />
+              </Box>
+            ) : (
+              <FormControl fullWidth size="small">
+                <InputLabel>Active Vendor Simulator</InputLabel>
+                <Select
+                  value={selectedCompanyId}
+                  label="Active Vendor Simulator"
+                  onChange={(e) => {
+                    const newId = e.target.value;
+                    setSelectedCompanyId(newId);
+                    const found = allVendors.find(v => v.id === newId);
+                    if (found) switchVendor(found);
+                  }}
+                >
+                  {allVendors && allVendors.length > 0 ? (
+                    allVendors.map((v) => (
+                      <MenuItem key={v.id} value={v.id}>
+                        {v.name} {v.authorized_signatory ? `(${v.authorized_signatory})` : ""}
+                      </MenuItem>
+                    ))
+                  ) : (
+                    companies.map((c) => (
+                      <MenuItem key={c.id} value={c.id}>
+                        {c.name}
+                      </MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+            )}
           </Box>
 
           {/* System Type */}

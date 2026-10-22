@@ -19,8 +19,12 @@ import {
     InputAdornment,
     Tooltip,
     Button,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from "@mui/material";
-import { ArrowBack, Visibility, Delete, Search, WhatsApp, Edit, Construction, Add } from "@mui/icons-material";
+import { ArrowBack, Visibility, Delete, Search, WhatsApp, Edit, Construction, Add, Storefront } from "@mui/icons-material";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -37,10 +41,13 @@ type Quotation = {
     form_data?: any;
     components?: any;
     system_type_name?: string;
+    vendor_id?: string | null;
 };
 
 export default function QuotationsAdminPage() {
     const [quotations, setQuotations] = useState<Quotation[]>([]);
+    const [vendors, setVendors] = useState<any[]>([]);
+    const [selectedVendorId, setSelectedVendorId] = useState<string>("all");
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [startDate, setStartDate] = useState("");
@@ -50,10 +57,18 @@ export default function QuotationsAdminPage() {
 
     const fetchQuotations = async () => {
         try {
-            const res = await fetch("/api/quotations?limit=1000");
-            const data = await res.json();
-            if (data.success) {
-                setQuotations(data.data || []);
+            const [quoteRes, vendorRes] = await Promise.all([
+                fetch("/api/quotations?limit=1000"),
+                fetch("/api/vendors"),
+            ]);
+            const quoteData = await quoteRes.json();
+            const vendorData = await vendorRes.json();
+
+            if (quoteData.success) {
+                setQuotations(quoteData.data || []);
+            }
+            if (vendorData.success) {
+                setVendors(vendorData.data || []);
             }
         } catch (error) {
             console.error("Failed to fetch quotations:", error);
@@ -131,6 +146,11 @@ export default function QuotationsAdminPage() {
         q.system_type_name === "Service";
 
     const filteredQuotations = quotations.filter((q) => {
+        // Vendor filter
+        if (selectedVendorId !== "all" && q.vendor_id !== selectedVendorId) {
+            return false;
+        }
+
         // Type filter
         if (typeFilter === "b2b" && !isB2B(q)) return false;
         if (typeFilter === "service" && !isService(q)) return false;
@@ -169,11 +189,34 @@ export default function QuotationsAdminPage() {
                                 <ArrowBack />
                             </IconButton>
                         </Link>
-                        <Typography variant="h4" fontWeight="bold">
-                            Quotations
-                        </Typography>
+                        <Box>
+                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                <Typography variant="h4" fontWeight="bold">
+                                    Global Quotations
+                                </Typography>
+                                <Chip label="Layer 1 Control" size="small" sx={{ bgcolor: "#0f172a", color: "#fff", fontWeight: 700 }} />
+                            </Box>
+                            <Typography variant="body2" color="text.secondary">
+                                Monitor and manage quotation output across all registered vendors
+                            </Typography>
+                        </Box>
                     </Box>
                     <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap" }}>
+                        <FormControl size="small" sx={{ minWidth: 200 }}>
+                            <InputLabel>Filter by Vendor</InputLabel>
+                            <Select
+                                value={selectedVendorId}
+                                label="Filter by Vendor"
+                                onChange={(e) => setSelectedVendorId(e.target.value)}
+                            >
+                                <MenuItem value="all">🏢 All Vendors ({quotations.length})</MenuItem>
+                                {vendors.map((v) => (
+                                    <MenuItem key={v.id} value={v.id}>
+                                        {v.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
                         <Link href="/?tab=ApolloB2B" style={{ textDecoration: "none" }}>
                             <Button
                                 variant="contained"
@@ -303,6 +346,7 @@ export default function QuotationsAdminPage() {
                                     <TableHead>
                                         <TableRow sx={{ bgcolor: "#f5f5f5" }}>
                                             <TableCell sx={{ fontWeight: "bold" }}>Quote No.</TableCell>
+                                            <TableCell sx={{ fontWeight: "bold" }}>Vendor / Shop</TableCell>
                                             <TableCell sx={{ fontWeight: "bold" }}>Customer</TableCell>
                                             <TableCell sx={{ fontWeight: "bold" }}>Phone</TableCell>
                                             <TableCell sx={{ fontWeight: "bold" }}>System / Capacity</TableCell>
@@ -321,6 +365,25 @@ export default function QuotationsAdminPage() {
                                                     <Typography variant="body2" fontWeight="medium">
                                                         {quotation.quote_number || "-"}
                                                     </Typography>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {(() => {
+                                                        const v = vendors.find((vend) => vend.id === quotation.vendor_id);
+                                                        return (
+                                                            <Chip
+                                                                icon={<Storefront sx={{ fontSize: "14px !important" }} />}
+                                                                label={v ? v.name : (quotation.vendor_id ? quotation.vendor_id : "Karan Solar")}
+                                                                size="small"
+                                                                sx={{
+                                                                    bgcolor: v?.id === 'karan-solar' || !quotation.vendor_id ? '#fff7ed' : '#f0fdf4',
+                                                                    color: v?.id === 'karan-solar' || !quotation.vendor_id ? '#c2410c' : '#15803d',
+                                                                    fontWeight: 700,
+                                                                    fontSize: '0.72rem',
+                                                                    border: '1px solid rgba(0,0,0,0.08)'
+                                                                }}
+                                                            />
+                                                        );
+                                                    })()}
                                                 </TableCell>
                                                 <TableCell>{quotation.customer_name}</TableCell>
                                                 <TableCell>{quotation.customer_phone || "-"}</TableCell>
