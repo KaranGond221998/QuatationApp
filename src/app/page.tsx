@@ -127,6 +127,11 @@ function QuotationBuilder() {
   // Edit Mode State
   const [editingQuotationId, setEditingQuotationId] = useState<string | null>(null);
   const [editLoaded, setEditLoaded] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Multi-vendor Authentication & Tenant Context
   const { user, vendor, role, signOut, allVendors, switchVendor } = useAuth();
@@ -1273,7 +1278,7 @@ function QuotationBuilder() {
                 </Button>
               </Link>
 
-              {user ? (
+              {mounted && user ? (
                 role === 'super_admin' ? (
                   /* DEVELOPER / SUPER ADMIN CONTROLS */
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
@@ -1407,7 +1412,7 @@ function QuotationBuilder() {
         <Box sx={{ flex: 1, overflow: "auto", p: 0 }}>
           {/* Company / Vendor Selection */}
           <Box sx={{ p: 2, borderBottom: "1px solid #e2e8f0", bgcolor: "#f8fafc" }}>
-            {role === 'vendor' ? (
+            {mounted && role === 'vendor' ? (
               <Box sx={{ p: 1.2, borderRadius: 2, bgcolor: 'rgba(255, 152, 0, 0.08)', border: '1px solid rgba(255, 152, 0, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Storefront sx={{ color: '#ff9800', fontSize: 20 }} />
@@ -1424,8 +1429,9 @@ function QuotationBuilder() {
               </Box>
             ) : (
               <FormControl fullWidth size="small">
-                <InputLabel>Active Vendor Simulator</InputLabel>
+                <InputLabel id="active-vendor-sim-label">Active Vendor Simulator</InputLabel>
                 <Select
+                  labelId="active-vendor-sim-label"
                   value={effectiveCompanyId}
                   label="Active Vendor Simulator"
                   onChange={(e) => {
@@ -1435,19 +1441,15 @@ function QuotationBuilder() {
                     if (found) switchVendor(found);
                   }}
                 >
-                  {allVendors && allVendors.length > 0 ? (
-                    allVendors.map((v) => (
+                  {(allVendors && allVendors.length > 0 ? allVendors : companies).map((v: any) => {
+                    const signatory = v.authorized_signatory || v.authorizedSignatory;
+                    const displayLabel = signatory ? `${v.name} (${signatory})` : v.name;
+                    return (
                       <MenuItem key={v.id} value={v.id}>
-                        {v.name} {v.authorized_signatory ? `(${v.authorized_signatory})` : ""}
+                        {displayLabel}
                       </MenuItem>
-                    ))
-                  ) : (
-                    companies.map((c) => (
-                      <MenuItem key={c.id} value={c.id}>
-                        {c.name}
-                      </MenuItem>
-                    ))
-                  )}
+                    );
+                  })}
                 </Select>
               </FormControl>
             )}
@@ -2177,7 +2179,7 @@ function QuotationBuilder() {
                 <Box sx={{ bgcolor: "#d97706", color: "white", px: 1.5, py: 0.4, fontSize: "10px", fontWeight: 900, borderRadius: 1, mb: 0.5, textTransform: "uppercase", letterSpacing: 1 }}>
                   Commercial Quotation
                 </Box>
-                <Typography sx={{ fontSize: "10px", color: "#64748b", fontWeight: 700 }}>Date: {currentDate}</Typography>
+                <Typography sx={{ fontSize: "10px", color: "#64748b", fontWeight: 700 }} suppressHydrationWarning>Date: {currentDate}</Typography>
                 <Typography sx={{ fontSize: "9px", color: "#94a3b8" }}>Ref: {b2bRefNumber}</Typography>
                 <Typography sx={{ fontSize: "8.5px", color: "#d97706", fontWeight: 600 }}>Valid: {b2bValidDays} Days</Typography>
               </Box>
@@ -2375,7 +2377,7 @@ function QuotationBuilder() {
               </Box>
               <Box sx={{ textAlign: "right" }}>
                 <Box sx={{ bgcolor: "#0d47a1", color: "white", px: 1.5, py: 0.5, fontSize: "10px", fontWeight: 900, borderRadius: 1, mb: 0.75, textTransform: "uppercase", letterSpacing: 1 }}>Service Proposal</Box>
-                <Typography sx={{ fontSize: "10px", color: "#64748b", fontWeight: 700 }}>Date: {currentDate}</Typography>
+                <Typography sx={{ fontSize: "10px", color: "#64748b", fontWeight: 700 }} suppressHydrationWarning>Date: {currentDate}</Typography>
                 <Typography sx={{ fontSize: "9.5px", color: "#94a3b8" }}>Reference: {serviceRefNumber}</Typography>
               </Box>
             </Box>
@@ -2502,7 +2504,7 @@ function QuotationBuilder() {
               </Box>
               <Box sx={{ textAlign: "right" }}>
                 <Box sx={{ bgcolor: "#eab308", color: "white", px: 1.5, py: 0.4, fontSize: "11px", fontWeight: 900, borderRadius: 1, mb: 0.5, textTransform: "uppercase", letterSpacing: 1.2 }}>Quotation</Box>
-                <Typography sx={{ fontSize: "10px", color: "#64748b", fontWeight: 700 }}>Date: {currentDate}</Typography>
+                <Typography sx={{ fontSize: "10px", color: "#64748b", fontWeight: 700 }} suppressHydrationWarning>Date: {currentDate}</Typography>
                 {quoteNumber && <Typography sx={{ fontSize: "9px", color: "#94a3b8" }}>Quote No: {quoteNumber}</Typography>}
                 <Typography sx={{ fontSize: "8.5px", color: "#eab308", fontWeight: 700, textTransform: "uppercase" }}>{selectedSystemType} System</Typography>
               </Box>
