@@ -129,22 +129,13 @@ export default function AdminDashboard() {
 
   // Add developer items if super admin
   if (isDeveloper) {
-    menuItems.push(
-      {
-        title: "Live Call Remote Control",
-        description: "Select vendor on call & modify components, margins & bank details live",
-        icon: <PhoneInTalk sx={{ fontSize: 40 }} />,
-        color: "#2563eb",
-        href: "/admin/vendors",
-      },
-      {
-        title: "Multi-Tenant Vendors Directory",
-        description: "Manage vendor accounts, Node IDs, passwords & tenant isolation",
-        icon: <Storefront sx={{ fontSize: 40 }} />,
-        color: "#dc2626",
-        href: "/admin/vendors",
-      }
-    );
+    menuItems.push({
+      title: "Vendors & Live Remote Control",
+      description: "Manage multi-tenant vendor accounts, Node IDs, passwords, banking & live on-call settings",
+      icon: <Storefront sx={{ fontSize: 40 }} />,
+      color: "#2563eb",
+      href: "/admin/vendors",
+    });
   }
 
   return (

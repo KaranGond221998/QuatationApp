@@ -28,8 +28,6 @@ import {
     CircularProgress,
     Tooltip,
     Stack,
-    Tabs,
-    Tab,
     Divider,
     FormControl,
     InputLabel,
@@ -69,7 +67,8 @@ export default function AdminVendorsPage() {
 
     const { user, role, switchVendor, vendor: activeVendor } = useAuth();
 
-    const [activeTab, setActiveTab] = useState(0); // 0 = Live Call Remote Control, 1 = All Vendors Directory
+    const consoleRef = useRef<HTMLDivElement>(null);
+    const tableRef = useRef<HTMLDivElement>(null);
     const [vendors, setVendors] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -525,49 +524,260 @@ export default function AdminVendorsPage() {
                         <Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a' }}>
-                                    Vendor Control & Live Call Override
+                                    Vendors & Live Remote Control
                                 </Typography>
                                 <Chip label="Layer 1 Master Console" size="small" sx={{ bgcolor: '#0f172a', color: '#fff', fontWeight: 800 }} />
+                                <Chip label={`${vendors.length} Active Tenants`} size="small" sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 700 }} />
                             </Box>
                             <Typography variant="body2" sx={{ color: '#64748b' }}>
-                                Select any active vendor to manage credentials, banking, brand assets, and shop profile live on call
+                                Multi-tenant directory of all vendors, credentials, banking, brand assets & live phone call remote control
                             </Typography>
                         </Box>
                     </Box>
 
-                    <Button
-                        variant="contained"
-                        startIcon={<AddBusinessIcon />}
-                        onClick={handleOpenCreate}
-                        sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 700 }}
-                    >
-                        Register New Vendor
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<PhoneInTalkIcon />}
+                            onClick={() => consoleRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                            sx={{ borderColor: '#2563eb', color: '#2563eb', fontWeight: 700 }}
+                        >
+                            Jump to Live Console
+                        </Button>
+                        <Button
+                            variant="contained"
+                            startIcon={<AddBusinessIcon />}
+                            onClick={handleOpenCreate}
+                            sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 700 }}
+                        >
+                            Register New Vendor
+                        </Button>
+                    </Box>
                 </Box>
 
-                {/* Mode Tabs */}
-                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-                    <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)}>
-                        <Tab
-                            icon={<PhoneInTalkIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label="Live Call Remote Control"
-                            sx={{ fontWeight: 700, textTransform: 'none', fontSize: 14 }}
-                        />
-                        <Tab
-                            icon={<StorefrontIcon sx={{ fontSize: 18 }} />}
-                            iconPosition="start"
-                            label={`All Vendors Directory (${vendors.length})`}
-                            sx={{ fontWeight: 700, textTransform: 'none', fontSize: 14 }}
-                        />
-                    </Tabs>
+                {/* ALL VENDORS DIRECTORY TABLE */}
+                <Box ref={tableRef} sx={{ mb: 4 }}>
+                    {successMsg && (
+                        <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSuccessMsg('')}>
+                            {successMsg}
+                        </Alert>
+                    )}
+
+                    <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                        <Box sx={{ p: 2.5, bgcolor: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Box sx={{ width: 38, height: 38, borderRadius: 2, bgcolor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                                    <StorefrontIcon sx={{ fontSize: 22 }} />
+                                </Box>
+                                <Box>
+                                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+                                        All Multi-Tenant Vendors Directory
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: '#64748b' }}>
+                                        Click <strong>&quot;Manage on Call&quot;</strong> on any vendor to load &amp; adjust their settings in the console below
+                                    </Typography>
+                                </Box>
+                            </Box>
+                            <Chip
+                                label={`${vendors.length} Total Registered Nodes`}
+                                size="small"
+                                sx={{ bgcolor: '#f1f5f9', color: '#334155', fontWeight: 700 }}
+                            />
+                        </Box>
+                        <TableContainer>
+                            <Table>
+                                <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 700 }}>Vendor / Company</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Tenant Node ID</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Prefix</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Login User ID</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Contact Info</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>GSTIN</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Margin / kW</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Quotes</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }} align="center">Actions</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {vendors.map((v) => {
+                                        const isSelected = v.id === remoteVendorId;
+                                        return (
+                                            <TableRow
+                                                key={v.id}
+                                                hover
+                                                sx={{
+                                                    bgcolor: isSelected ? 'rgba(37, 99, 235, 0.05)' : undefined,
+                                                    borderLeft: isSelected ? '4px solid #2563eb' : '4px solid transparent',
+                                                    transition: 'all 0.2s',
+                                                }}
+                                            >
+                                                <TableCell>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                        <Box
+                                                            component="img"
+                                                            src={v.logo_url || '/logo.png'}
+                                                            alt="Logo"
+                                                            sx={{ width: 36, height: 36, objectFit: 'contain', bgcolor: '#f1f5f9', borderRadius: 1.5, p: 0.5 }}
+                                                            onError={(e: any) => { e.target.src = '/logo.png'; }}
+                                                        />
+                                                        <Box>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a' }}>
+                                                                    {v.name}
+                                                                </Typography>
+                                                                {v.is_demo && (
+                                                                    <Chip label="Demo Flagship" size="small" sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 10, height: 20 }} />
+                                                                )}
+                                                            </Box>
+                                                            <Typography variant="caption" sx={{ color: '#64748b' }}>
+                                                                Signatory: {v.authorized_signatory || 'N/A'}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Box>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={v.node_id || 'NODE-VNS-001'}
+                                                        size="small"
+                                                        sx={{ bgcolor: '#0f172a', color: '#38bdf8', fontWeight: 800, fontFamily: 'monospace', fontSize: 11 }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={v.quote_prefix || 'QT'}
+                                                        size="small"
+                                                        sx={{ bgcolor: '#f0f9ff', color: '#0369a1', fontWeight: 700, fontSize: 11 }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    {v.vendor_users && v.vendor_users.length > 0 ? (
+                                                        <Box>
+                                                            <Chip
+                                                                icon={<KeyIcon sx={{ fontSize: '13px !important', color: '#7c3aed !important' }} />}
+                                                                label={v.vendor_users[0].email}
+                                                                size="small"
+                                                                sx={{ bgcolor: '#f5f3ff', color: '#6d28d9', fontWeight: 700, fontFamily: 'monospace', fontSize: 11.5 }}
+                                                            />
+                                                            {v.vendor_users.length > 1 && (
+                                                                <Typography variant="caption" sx={{ display: 'block', color: '#64748b', fontSize: 10 }}>
+                                                                    +{v.vendor_users.length - 1} more
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    ) : (
+                                                        <Chip
+                                                            label="No Login Yet"
+                                                            size="small"
+                                                            sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 600, fontSize: 11 }}
+                                                        />
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2">{v.phone || '-'}</Typography>
+                                                    <Typography variant="caption" sx={{ color: '#64748b' }}>{v.email || '-'}</Typography>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                                        {v.gstin || '-'}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={`₹${v.default_margin || 0}/kW`}
+                                                        size="small"
+                                                        sx={{ bgcolor: '#ecfdf5', color: '#059669', fontWeight: 700 }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        icon={<ReceiptIcon sx={{ fontSize: '13px !important' }} />}
+                                                        label={v.quotations?.[0]?.count ?? 0}
+                                                        size="small"
+                                                        sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 700 }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={v.status}
+                                                        size="small"
+                                                        color={v.status === 'active' ? 'success' : 'default'}
+                                                        sx={{ fontWeight: 700, textTransform: 'capitalize' }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <Stack direction="row" spacing={0.75} justifyContent="center" alignItems="center">
+                                                        <Tooltip title={isSelected ? "Currently Active in Console Below" : `Manage ${v.name} Live on Call`}>
+                                                            <Button
+                                                                size="small"
+                                                                variant={isSelected ? "contained" : "outlined"}
+                                                                startIcon={<PhoneInTalkIcon sx={{ fontSize: 15 }} />}
+                                                                onClick={() => {
+                                                                    selectVendorForRemoteControl(v);
+                                                                    consoleRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                                                }}
+                                                                sx={{
+                                                                    textTransform: 'none',
+                                                                    fontWeight: 700,
+                                                                    fontSize: 12,
+                                                                    py: 0.35,
+                                                                    px: 1.2,
+                                                                    borderRadius: 1.5,
+                                                                    bgcolor: isSelected ? '#2563eb' : 'transparent',
+                                                                    borderColor: '#2563eb',
+                                                                    color: isSelected ? '#fff' : '#2563eb',
+                                                                    boxShadow: isSelected ? '0 2px 8px rgba(37,99,235,0.3)' : 'none',
+                                                                    '&:hover': {
+                                                                        bgcolor: isSelected ? '#1d4ed8' : '#eff6ff',
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {isSelected ? 'Active on Call' : 'Manage on Call'}
+                                                            </Button>
+                                                        </Tooltip>
+                                                        <Tooltip title="Set / Reset User ID & Password">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => openCredentialsModal(v)}
+                                                                sx={{ color: '#7c3aed', bgcolor: '#f5f3ff', '&:hover': { bgcolor: '#ede9fe' } }}
+                                                            >
+                                                                <KeyIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Simulate Vendor in Quotation Builder">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleSimulate(v)}
+                                                                sx={{ color: '#ff9800', bgcolor: '#fffbeb', '&:hover': { bgcolor: '#fef3c7' } }}
+                                                            >
+                                                                <VisibilityIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Deactivate">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleDeactivate(v.id)}
+                                                                sx={{ color: '#ef4444', bgcolor: '#fef2f2', '&:hover': { bgcolor: '#fee2e2' } }}
+                                                            >
+                                                                <DeleteOutlineIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Stack>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Card>
                 </Box>
 
-                {/* TAB 0: LIVE CALL REMOTE CONTROL */}
-                {activeTab === 0 && (
-                    <Box>
-                        {/* Vendor Dropdown Selector Bar */}
-                        <Card sx={{ mb: 3, borderRadius: 3, border: '2px solid #2563eb', bgcolor: '#eff6ff', boxShadow: '0 4px 20px rgba(37,99,235,0.1)' }}>
+                {/* LIVE CALL REMOTE CONTROL CONSOLE */}
+                <Box ref={consoleRef} sx={{ pt: 1, mb: 4 }}>
+                    {/* Vendor Dropdown Selector Bar */}
+                    <Card sx={{ mb: 3, borderRadius: 3, border: '2px solid #2563eb', bgcolor: '#eff6ff', boxShadow: '0 4px 20px rgba(37,99,235,0.1)' }}>
                             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                                 <Grid container spacing={2} alignItems="center">
                                     <Grid size={{ xs: 12, md: 5 }}>
@@ -616,7 +826,17 @@ export default function AdminVendorsPage() {
                                         </FormControl>
                                     </Grid>
 
-                                    <Grid size={{ xs: 12, md: 3 }} sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+                                    <Grid size={{ xs: 12, md: 3 }} sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' }, flexWrap: 'wrap' }}>
+                                        <Button
+                                            variant="outlined"
+                                            startIcon={<StorefrontIcon sx={{ fontSize: 16 }} />}
+                                            onClick={() => tableRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                                            sx={{ borderColor: '#93c5fd', color: '#1e40af', fontWeight: 700, bgcolor: '#fff' }}
+                                            size="small"
+                                        >
+                                            Directory
+                                        </Button>
+
                                         <Button
                                             variant="contained"
                                             startIcon={remoteSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SaveIcon />}
@@ -982,181 +1202,6 @@ export default function AdminVendorsPage() {
                             </Grid>
                         )}
                     </Box>
-                )}
-
-                {/* TAB 1: ALL VENDORS DIRECTORY */}
-                {activeTab === 1 && (
-                    <Box>
-                        {successMsg && (
-                            <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSuccessMsg('')}>
-                                {successMsg}
-                            </Alert>
-                        )}
-
-                        <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                            <TableContainer>
-                                <Table>
-                                    <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 700 }}>Vendor / Company</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Tenant Node ID</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Prefix</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Login User ID</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Contact Info</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>GSTIN</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Margin / kW</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Quotes</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }} align="center">Actions</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {vendors.map((v) => (
-                                            <TableRow key={v.id} hover>
-                                                <TableCell>
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                        <Box
-                                                             component="img"
-                                                             src={v.logo_url || '/logo.png'}
-                                                             alt="Logo"
-                                                             sx={{ width: 36, height: 36, objectFit: 'contain', bgcolor: '#f1f5f9', borderRadius: 1.5, p: 0.5 }}
-                                                             onError={(e: any) => { e.target.src = '/logo.png'; }}
-                                                        />
-                                                        <Box>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                                                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a' }}>
-                                                                    {v.name}
-                                                                </Typography>
-                                                                {v.is_demo && (
-                                                                    <Chip label="Demo Flagship" size="small" sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 10, height: 20 }} />
-                                                                )}
-                                                            </Box>
-                                                            <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                                                Signatory: {v.authorized_signatory || 'N/A'}
-                                                            </Typography>
-                                                        </Box>
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        label={v.node_id || 'NODE-VNS-001'}
-                                                        size="small"
-                                                        sx={{ bgcolor: '#0f172a', color: '#38bdf8', fontWeight: 800, fontFamily: 'monospace', fontSize: 11 }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        label={v.quote_prefix || 'QT'}
-                                                        size="small"
-                                                        sx={{ bgcolor: '#f0f9ff', color: '#0369a1', fontWeight: 700, fontSize: 11 }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    {v.vendor_users && v.vendor_users.length > 0 ? (
-                                                        <Box>
-                                                            <Chip
-                                                                icon={<KeyIcon sx={{ fontSize: '13px !important', color: '#7c3aed !important' }} />}
-                                                                label={v.vendor_users[0].email}
-                                                                size="small"
-                                                                sx={{ bgcolor: '#f5f3ff', color: '#6d28d9', fontWeight: 700, fontFamily: 'monospace', fontSize: 11.5 }}
-                                                            />
-                                                            {v.vendor_users.length > 1 && (
-                                                                <Typography variant="caption" sx={{ display: 'block', color: '#64748b', fontSize: 10 }}>
-                                                                    +{v.vendor_users.length - 1} more
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    ) : (
-                                                        <Chip
-                                                            label="No Login Yet"
-                                                            size="small"
-                                                            sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 600, fontSize: 11 }}
-                                                        />
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography variant="body2">{v.phone || '-'}</Typography>
-                                                    <Typography variant="caption" sx={{ color: '#64748b' }}>{v.email || '-'}</Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
-                                                        {v.gstin || '-'}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        label={`₹${v.default_margin || 0}/kW`}
-                                                        size="small"
-                                                        sx={{ bgcolor: '#ecfdf5', color: '#059669', fontWeight: 700 }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        icon={<ReceiptIcon sx={{ fontSize: '13px !important' }} />}
-                                                        label={v.quotations?.[0]?.count ?? 0}
-                                                        size="small"
-                                                        sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 700 }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        label={v.status}
-                                                        size="small"
-                                                        color={v.status === 'active' ? 'success' : 'default'}
-                                                        sx={{ fontWeight: 700, textTransform: 'capitalize' }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell align="center">
-                                                    <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                        <Tooltip title="Set / Reset User ID & Password">
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => openCredentialsModal(v)}
-                                                                sx={{ color: '#7c3aed', bgcolor: '#f5f3ff', '&:hover': { bgcolor: '#ede9fe' } }}
-                                                            >
-                                                                <KeyIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip title="Manage on Call">
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => {
-                                                                    selectVendorForRemoteControl(v);
-                                                                    setActiveTab(0);
-                                                                }}
-                                                                sx={{ color: '#2563eb' }}
-                                                            >
-                                                                <PhoneInTalkIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip title="Simulate Vendor">
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => handleSimulate(v)}
-                                                                sx={{ color: '#ff9800' }}
-                                                            >
-                                                                <VisibilityIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip title="Deactivate">
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => handleDeactivate(v.id)}
-                                                                sx={{ color: '#ef4444' }}
-                                                            >
-                                                                <DeleteOutlineIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    </Stack>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </Card>
-                    </Box>
-                )}
 
                 {/* DEDICATED MANAGE LOGIN CREDENTIALS DIALOG */}
                 <Dialog open={credentialsModalOpen} onClose={() => setCredentialsModalOpen(false)} maxWidth="sm" fullWidth>
