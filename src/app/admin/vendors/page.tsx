@@ -47,7 +47,6 @@ import KeyIcon from '@mui/icons-material/Key';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
 import PhoneInTalkIcon from '@mui/icons-material/PhoneInTalk';
-import TuneIcon from '@mui/icons-material/Tune';
 import SaveIcon from '@mui/icons-material/Save';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import VerifiedIcon from '@mui/icons-material/Verified';
@@ -108,14 +107,9 @@ export default function AdminVendorsPage() {
     const [rcAccountNumber, setRcAccountNumber] = useState('');
     const [rcIfsc, setRcIfsc] = useState('');
     const [rcUpiId, setRcUpiId] = useState('');
-    const [rcDefaultMargin, setRcDefaultMargin] = useState(0);
     const [rcLogoUrl, setRcLogoUrl] = useState('/logo.png');
     const [rcSignatureUrl, setRcSignatureUrl] = useState('/signature.png');
     const [rcStampUrl, setRcStampUrl] = useState('/stamp.png');
-    const [rcPreferredPanelBrand, setRcPreferredPanelBrand] = useState('Adani');
-    const [rcPreferredInverterBrand, setRcPreferredInverterBrand] = useState('Polycab');
-    const [rcPreferredStructureMake, setRcPreferredStructureMake] = useState('APOLLO');
-    const [rcCustomTerms, setRcCustomTerms] = useState('');
     const [rcResetPassword, setRcResetPassword] = useState('');
     const [rcShowPassword, setRcShowPassword] = useState(false);
 
@@ -207,17 +201,10 @@ export default function AdminVendorsPage() {
         setRcAccountNumber(v.account_number || '');
         setRcIfsc(v.ifsc || '');
         setRcUpiId(v.upi_id || '');
-        setRcDefaultMargin(Number(v.default_margin) || 0);
         setRcLogoUrl(v.logo_url || '/logo.png');
         setRcSignatureUrl(v.signature_url || '/signature.png');
         setRcStampUrl(v.stamp_url || '/stamp.png');
         setRcResetPassword('');
-
-        const compSettings = v.components_settings || {};
-        setRcPreferredPanelBrand(compSettings.preferredPanelBrand || 'Adani');
-        setRcPreferredInverterBrand(compSettings.preferredInverterBrand || 'Polycab');
-        setRcPreferredStructureMake(compSettings.preferredStructureMake || 'APOLLO');
-        setRcCustomTerms(compSettings.customTerms || '');
 
         setRemoteError('');
         setRemoteSuccess('');
@@ -269,13 +256,6 @@ export default function AdminVendorsPage() {
         setRemoteSuccess('');
 
         try {
-            const componentsSettings = {
-                preferredPanelBrand: rcPreferredPanelBrand,
-                preferredInverterBrand: rcPreferredInverterBrand,
-                preferredStructureMake: rcPreferredStructureMake,
-                customTerms: rcCustomTerms,
-            };
-
             const payload: any = {
                 id: remoteVendorId,
                 name: rcName.trim(),
@@ -301,8 +281,8 @@ export default function AdminVendorsPage() {
                 quote_prefix: rcQuotePrefix.trim().toUpperCase(),
                 is_demo: rcIsDemo,
                 plan_tier: rcPlanTier,
-                default_margin: Number(rcDefaultMargin) || 0,
-                components_settings: componentsSettings,
+                default_margin: remoteVendor?.default_margin ?? 0,
+                components_settings: remoteVendor?.components_settings ?? {},
             };
 
             if (rcResetPassword.trim().length >= 6) {
@@ -550,7 +530,7 @@ export default function AdminVendorsPage() {
                                 <Chip label="Layer 1 Master Console" size="small" sx={{ bgcolor: '#0f172a', color: '#fff', fontWeight: 800 }} />
                             </Box>
                             <Typography variant="body2" sx={{ color: '#64748b' }}>
-                                Select any active vendor to automatically fetch their settings, modify components, or adjust margins verbally on call
+                                Select any active vendor to manage credentials, banking, brand assets, and shop profile live on call
                             </Typography>
                         </Box>
                     </Box>
@@ -612,7 +592,7 @@ export default function AdminVendorsPage() {
                                                     Active Vendor On-Call Selector
                                                 </Typography>
                                                 <Typography variant="caption" sx={{ color: '#3b82f6', fontWeight: 600 }}>
-                                                    Instantly fetches settings & components for live phone discussion
+                                                    Instantly loads credentials, banking, and brand assets for live phone discussion
                                                 </Typography>
                                             </Box>
                                         </Box>
@@ -687,88 +667,7 @@ export default function AdminVendorsPage() {
                             <Grid container spacing={3}>
                                 {/* Left Column: Components, Pricing & Credentials */}
                                 <Grid size={{ xs: 12, md: 6 }}>
-                                    {/* 1. Pricing Engine & Component Settings */}
-                                    <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '4px solid #f59e0b' }}>
-                                        <CardContent sx={{ p: 3 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                                <TuneIcon sx={{ color: '#d97706' }} />
-                                                <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b' }}>
-                                                    Component Defaults & Custom Margins
-                                                </Typography>
-                                            </Box>
-                                            <Typography variant="body2" sx={{ color: '#64748b', mb: 2.5 }}>
-                                                Adjust what this vendor sees by default on their quotation builder.
-                                            </Typography>
-
-                                            <Grid container spacing={2}>
-                                                <Grid size={{ xs: 12, sm: 6 }}>
-                                                    <TextField
-                                                        fullWidth
-                                                        type="number"
-                                                        label="Custom Profit Margin (₹ / kW)"
-                                                        value={rcDefaultMargin}
-                                                        onChange={(e) => setRcDefaultMargin(Number(e.target.value))}
-                                                        helperText="Automatically applied to baseline products"
-                                                    />
-                                                </Grid>
-                                                <Grid size={{ xs: 12, sm: 6 }}>
-                                                    <FormControl fullWidth>
-                                                        <InputLabel>Preferred Panel Brand</InputLabel>
-                                                        <Select
-                                                            value={rcPreferredPanelBrand}
-                                                            label="Preferred Panel Brand"
-                                                            onChange={(e) => setRcPreferredPanelBrand(e.target.value)}
-                                                        >
-                                                            {['Adani', 'Waaree', 'Goldi', 'Rayzon', 'Premier', 'Vikram Solar', 'Other'].map(b => (
-                                                                <MenuItem key={b} value={b}>{b}</MenuItem>
-                                                            ))}
-                                                        </Select>
-                                                    </FormControl>
-                                                </Grid>
-                                                <Grid size={{ xs: 12, sm: 6 }}>
-                                                    <FormControl fullWidth>
-                                                        <InputLabel>Preferred Inverter Brand</InputLabel>
-                                                        <Select
-                                                            value={rcPreferredInverterBrand}
-                                                            label="Preferred Inverter Brand"
-                                                            onChange={(e) => setRcPreferredInverterBrand(e.target.value)}
-                                                        >
-                                                            {['Polycab', 'Growatt', 'Deye', 'Solis', 'Sungrow', 'GoodWe', 'Luminous', 'Other'].map(b => (
-                                                                <MenuItem key={b} value={b}>{b}</MenuItem>
-                                                            ))}
-                                                        </Select>
-                                                    </FormControl>
-                                                </Grid>
-                                                <Grid size={{ xs: 12, sm: 6 }}>
-                                                    <FormControl fullWidth>
-                                                        <InputLabel>Structure Make Specification</InputLabel>
-                                                        <Select
-                                                            value={rcPreferredStructureMake}
-                                                            label="Structure Make Specification"
-                                                            onChange={(e) => setRcPreferredStructureMake(e.target.value)}
-                                                        >
-                                                            <MenuItem value="APOLLO">APOLLO (Default)</MenuItem>
-                                                            <MenuItem value="TATA">TATA</MenuItem>
-                                                            <MenuItem value="APOLLO / TATA">APOLLO / TATA</MenuItem>
-                                                        </Select>
-                                                    </FormControl>
-                                                </Grid>
-                                                <Grid size={{ xs: 12 }}>
-                                                    <TextField
-                                                        fullWidth
-                                                        multiline
-                                                        rows={2}
-                                                        label="Custom Proposal Terms & Notes"
-                                                        value={rcCustomTerms}
-                                                        onChange={(e) => setRcCustomTerms(e.target.value)}
-                                                        placeholder="e.g. 50% advance with order, net metering included."
-                                                    />
-                                                </Grid>
-                                            </Grid>
-                                        </CardContent>
-                                    </Card>
-
-                                    {/* 2. Customer Vendor Login Credentials */}
+                                    {/* 1. Customer Vendor Login Credentials */}
                                     <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '4px solid #7c3aed' }}>
                                         <CardContent sx={{ p: 3 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
