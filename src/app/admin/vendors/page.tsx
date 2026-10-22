@@ -35,11 +35,13 @@ import {
     InputLabel,
     Select,
     MenuItem,
+    InputAdornment,
 } from '@mui/material';
 import AddBusinessIcon from '@mui/icons-material/AddBusiness';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import KeyIcon from '@mui/icons-material/Key';
 import StorefrontIcon from '@mui/icons-material/Storefront';
@@ -53,6 +55,11 @@ import LaunchIcon from '@mui/icons-material/Launch';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import PersonIcon from '@mui/icons-material/Person';
+import LockIcon from '@mui/icons-material/Lock';
+import CheckIcon from '@mui/icons-material/Check';
 import { useAuth } from '@/context/AuthContext';
 import { Vendor } from '@/types';
 
@@ -82,6 +89,11 @@ export default function AdminVendorsPage() {
 
     // Remote Control Form Fields
     const [rcName, setRcName] = useState('');
+    const [rcNodeId, setRcNodeId] = useState('');
+    const [rcQuotePrefix, setRcQuotePrefix] = useState('QT');
+    const [rcQrCodeUrl, setRcQrCodeUrl] = useState('');
+    const [rcIsDemo, setRcIsDemo] = useState(false);
+    const [rcPlanTier, setRcPlanTier] = useState('pro');
     const [rcTagline, setRcTagline] = useState('');
     const [rcPhone, setRcPhone] = useState('');
     const [rcAlternatePhone, setRcAlternatePhone] = useState('');
@@ -105,15 +117,32 @@ export default function AdminVendorsPage() {
     const [rcPreferredStructureMake, setRcPreferredStructureMake] = useState('APOLLO');
     const [rcCustomTerms, setRcCustomTerms] = useState('');
     const [rcResetPassword, setRcResetPassword] = useState('');
+    const [rcShowPassword, setRcShowPassword] = useState(false);
+
+    // Dedicated Credentials Modal State
+    const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
+    const [credVendor, setCredVendor] = useState<any | null>(null);
+    const [credEmail, setCredEmail] = useState('');
+    const [credPassword, setCredPassword] = useState('');
+    const [credShowPassword, setCredShowPassword] = useState(false);
+    const [credRole, setCredRole] = useState<'vendor' | 'salesperson'>('vendor');
+    const [credSaving, setCredSaving] = useState(false);
+    const [credSuccess, setCredSuccess] = useState('');
+    const [credError, setCredError] = useState('');
+    const [copiedText, setCopiedText] = useState(false);
+    const [modalShowPassword, setModalShowPassword] = useState(false);
 
     // Upload refs for remote control
     const rcLogoInputRef = useRef<HTMLInputElement>(null);
     const rcSigInputRef = useRef<HTMLInputElement>(null);
     const rcStampInputRef = useRef<HTMLInputElement>(null);
+    const rcQrInputRef = useRef<HTMLInputElement>(null);
     const [uploadingRcAsset, setUploadingRcAsset] = useState<string | null>(null);
 
     // Create Modal Form Fields
     const [modalName, setModalName] = useState('');
+    const [modalNodeId, setModalNodeId] = useState('');
+    const [modalQuotePrefix, setModalQuotePrefix] = useState('');
     const [modalEmail, setModalEmail] = useState('');
     const [modalPassword, setModalPassword] = useState('');
     const [modalPhone, setModalPhone] = useState('');
@@ -159,10 +188,15 @@ export default function AdminVendorsPage() {
         setRemoteVendorId(v.id);
         setRemoteVendor(v);
         setRcName(v.name || '');
+        setRcNodeId(v.node_id || 'NODE-VNS-001');
+        setRcQuotePrefix(v.quote_prefix || 'KSS');
+        setRcQrCodeUrl(v.qr_code_url || '');
+        setRcIsDemo(Boolean(v.is_demo));
+        setRcPlanTier(v.plan_tier || 'pro');
         setRcTagline(v.tagline || '');
         setRcPhone(v.phone || '');
-        setRcAlternatePhone(v.alternate_phone || '');
-        setRcEmail(v.email || '');
+        const existingUserEmail = v.vendor_users?.[0]?.email || v.email || '';
+        setRcEmail(existingUserEmail);
         setRcSignatory(v.authorized_signatory || '');
         setRcGstin(v.gstin || '');
         setRcHeadOffice(v.head_office || '');
@@ -197,7 +231,7 @@ export default function AdminVendorsPage() {
     };
 
     // Upload Asset from Admin Remote Control
-    const handleRemoteUpload = async (file: File, type: 'logo' | 'signature' | 'stamp') => {
+    const handleRemoteUpload = async (file: File, type: 'logo' | 'signature' | 'stamp' | 'qr') => {
         if (!remoteVendorId) return;
         setUploadingRcAsset(type);
         try {
@@ -217,8 +251,9 @@ export default function AdminVendorsPage() {
             if (type === 'logo') setRcLogoUrl(json.url);
             if (type === 'signature') setRcSignatureUrl(json.url);
             if (type === 'stamp') setRcStampUrl(json.url);
+            if (type === 'qr') setRcQrCodeUrl(json.url);
 
-            setRemoteSuccess(`${type.toUpperCase()} uploaded to cloud bucket! Click "Save Changes" to apply.`);
+            setRemoteSuccess(`${type.toUpperCase()} uploaded to tenant vault and updated successfully!`);
         } catch (err: any) {
             setRemoteError(err.message || 'Upload failed');
         } finally {
@@ -261,12 +296,20 @@ export default function AdminVendorsPage() {
                 logo_url: rcLogoUrl,
                 signature_url: rcSignatureUrl,
                 stamp_url: rcStampUrl,
+                qr_code_url: rcQrCodeUrl || null,
+                node_id: rcNodeId.trim(),
+                quote_prefix: rcQuotePrefix.trim().toUpperCase(),
+                is_demo: rcIsDemo,
+                plan_tier: rcPlanTier,
                 default_margin: Number(rcDefaultMargin) || 0,
                 components_settings: componentsSettings,
             };
 
             if (rcResetPassword.trim().length >= 6) {
                 payload.password = rcResetPassword.trim();
+                payload.login_email = rcEmail.trim();
+            } else if (rcEmail.trim()) {
+                payload.login_email = rcEmail.trim();
             }
 
             const res = await fetch('/api/vendors', {
@@ -292,9 +335,120 @@ export default function AdminVendorsPage() {
         }
     };
 
+    // Helper to generate secure random password
+    const generateSecurePassword = () => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+        let result = '';
+        for (let i = 0; i < 8; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return `Solar@${result}!`;
+    };
+
+    // Helper to copy WhatsApp/Email shareable login credentials
+    const copyLoginDetailsToClipboard = (vendorName: string, email: string, pwd?: string) => {
+        const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+        const text = `🌞 *${vendorName} — Solar Quotation Portal Access*\n\n` +
+            `🌐 *Portal Login:* ${origin}/login\n` +
+            `👤 *User ID (Email):* ${email}\n` +
+            `${pwd ? `🔑 *Password:* ${pwd}\n` : ''}\n` +
+            `Use these credentials to log in, customize your logo & signature, and start generating customer quotes.`;
+        navigator.clipboard.writeText(text);
+        setCopiedText(true);
+        setTimeout(() => setCopiedText(false), 3000);
+    };
+
+    // One-click quick save credentials directly from Remote Control card
+    const handleQuickSaveCredentials = async () => {
+        if (!remoteVendorId) return;
+        if (!rcEmail || !rcEmail.includes('@')) {
+            setRemoteError('Please enter a valid User ID / Login Email');
+            return;
+        }
+        if (!rcResetPassword || rcResetPassword.trim().length < 6) {
+            setRemoteError('Password must be at least 6 characters');
+            return;
+        }
+        setRemoteSaving(true);
+        setRemoteError('');
+        setRemoteSuccess('');
+        try {
+            const res = await fetch('/api/vendors', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: remoteVendorId,
+                    login_email: rcEmail.trim(),
+                    password: rcResetPassword.trim(),
+                }),
+            });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.message);
+            setRemoteSuccess(`Login credentials activated for ${rcName}! User ID: ${rcEmail.trim()}`);
+            setRcResetPassword('');
+            loadVendors();
+        } catch (err: any) {
+            setRemoteError(err.message || 'Failed to update credentials');
+        } finally {
+            setRemoteSaving(false);
+        }
+    };
+
+    // Dedicated Credentials Modal Open & Save
+    const openCredentialsModal = (v: any) => {
+        setCredVendor(v);
+        const existingUser = v.vendor_users?.[0];
+        setCredEmail(existingUser?.email || v.email || '');
+        setCredPassword('');
+        setCredRole(existingUser?.role || 'vendor');
+        setCredSuccess('');
+        setCredError('');
+        setCopiedText(false);
+        setCredentialsModalOpen(true);
+    };
+
+    const handleSaveCredentialsModal = async () => {
+        if (!credVendor) return;
+        if (!credEmail || !credEmail.includes('@')) {
+            setCredError('Please provide a valid login email / User ID');
+            return;
+        }
+        if (!credPassword || credPassword.trim().length < 6) {
+            setCredError('Password must be at least 6 characters long');
+            return;
+        }
+
+        setCredSaving(true);
+        setCredError('');
+        setCredSuccess('');
+        try {
+            const res = await fetch('/api/vendors', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: credVendor.id,
+                    login_email: credEmail.trim(),
+                    password: credPassword.trim(),
+                    role: credRole,
+                }),
+            });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.message);
+
+            setCredSuccess(`Credentials activated! User ID: ${credEmail.trim()}`);
+            loadVendors();
+        } catch (err: any) {
+            setCredError(err.message || 'Failed to update credentials');
+        } finally {
+            setCredSaving(false);
+        }
+    };
+
     // Open Modal for New Vendor Creation
     const handleOpenCreate = () => {
         setModalName('');
+        setModalNodeId('');
+        setModalQuotePrefix('');
         setModalEmail('');
         setModalPassword('');
         setModalPhone('');
@@ -327,6 +481,8 @@ export default function AdminVendorsPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     name: modalName.trim(),
+                    node_id: modalNodeId.trim() || undefined,
+                    quote_prefix: modalQuotePrefix.trim().toUpperCase() || undefined,
                     email: modalEmail.trim() || null,
                     password: modalPassword.trim() || null,
                     phone: modalPhone.trim() || null,
@@ -612,39 +768,118 @@ export default function AdminVendorsPage() {
                                         </CardContent>
                                     </Card>
 
-                                    {/* 2. On-Call Credentials & Password Reset */}
-                                    <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '4px solid #6366f1' }}>
+                                    {/* 2. Customer Vendor Login Credentials */}
+                                    <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '4px solid #7c3aed' }}>
                                         <CardContent sx={{ p: 3 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                                <LockResetIcon sx={{ color: '#4f46e5' }} />
-                                                <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b' }}>
-                                                    Credentials & On-Call Password Reset
-                                                </Typography>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <KeyIcon sx={{ color: '#7c3aed' }} />
+                                                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                                                        Customer Vendor Login Credentials (User ID & Password)
+                                                    </Typography>
+                                                </Box>
+                                                {remoteVendor?.vendor_users && remoteVendor.vendor_users.length > 0 ? (
+                                                    <Chip
+                                                        icon={<CheckCircleOutlineIcon sx={{ fontSize: '14px !important' }} />}
+                                                        label={`Active User ID: ${remoteVendor.vendor_users[0].email}`}
+                                                        size="small"
+                                                        sx={{ bgcolor: '#f5f3ff', color: '#7c3aed', fontWeight: 700 }}
+                                                    />
+                                                ) : (
+                                                    <Chip
+                                                        label="⚠️ No Login Account Activated"
+                                                        size="small"
+                                                        sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 700 }}
+                                                    />
+                                                )}
                                             </Box>
                                             <Typography variant="body2" sx={{ color: '#64748b', mb: 2 }}>
-                                                If vendor forgot credentials on the call, you can verbally issue a new password immediately.
+                                                Create or update the User ID (email) and password for this customer vendor so they can log in at <code>/login</code>.
                                             </Typography>
 
                                             <Grid container spacing={2}>
                                                 <Grid size={{ xs: 12, sm: 6 }}>
                                                     <TextField
                                                         fullWidth
-                                                        label="Login Email"
+                                                        label="Vendor User ID (Login Email) *"
                                                         type="email"
                                                         value={rcEmail}
                                                         onChange={(e) => setRcEmail(e.target.value)}
+                                                        helperText="Vendor logs in with this email"
+                                                        InputProps={{
+                                                            startAdornment: (
+                                                                <InputAdornment position="start">
+                                                                    <PersonIcon sx={{ color: '#7c3aed', fontSize: 20 }} />
+                                                                </InputAdornment>
+                                                            ),
+                                                        }}
                                                     />
                                                 </Grid>
                                                 <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>
+                                                            Password (Min 6 characters)
+                                                        </Typography>
+                                                        <Button
+                                                            size="small"
+                                                            startIcon={<AutoAwesomeIcon sx={{ fontSize: 13 }} />}
+                                                            onClick={() => setRcResetPassword(generateSecurePassword())}
+                                                            sx={{ textTransform: 'none', fontSize: 11, fontWeight: 700, color: '#7c3aed', py: 0 }}
+                                                        >
+                                                            Generate Random
+                                                        </Button>
+                                                    </Box>
                                                     <TextField
                                                         fullWidth
-                                                        label="Reset Password On Call"
-                                                        type="text"
+                                                        type={rcShowPassword ? 'text' : 'password'}
                                                         placeholder="Enter new password (min 6 chars)"
                                                         value={rcResetPassword}
                                                         onChange={(e) => setRcResetPassword(e.target.value)}
                                                         helperText="Leave empty to keep existing password"
+                                                        InputProps={{
+                                                            startAdornment: (
+                                                                <InputAdornment position="start">
+                                                                    <LockIcon sx={{ color: '#7c3aed', fontSize: 20 }} />
+                                                                </InputAdornment>
+                                                            ),
+                                                            endAdornment: (
+                                                                <InputAdornment position="end">
+                                                                    <IconButton
+                                                                        size="small"
+                                                                        onClick={() => setRcShowPassword(!rcShowPassword)}
+                                                                        edge="end"
+                                                                    >
+                                                                        {rcShowPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                                                                    </IconButton>
+                                                                </InputAdornment>
+                                                            ),
+                                                        }}
                                                     />
+                                                </Grid>
+                                                <Grid size={{ xs: 12 }}>
+                                                    <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', mt: 0.5 }}>
+                                                        <Button
+                                                            variant="contained"
+                                                            size="small"
+                                                            startIcon={<KeyIcon />}
+                                                            onClick={handleQuickSaveCredentials}
+                                                            disabled={remoteSaving}
+                                                            sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' }, fontWeight: 700, textTransform: 'none' }}
+                                                        >
+                                                            Save & Issue Credentials Now
+                                                        </Button>
+                                                        {rcEmail && (
+                                                            <Button
+                                                                variant="outlined"
+                                                                size="small"
+                                                                startIcon={copiedText ? <CheckIcon /> : <ContentCopyIcon />}
+                                                                onClick={() => copyLoginDetailsToClipboard(rcName, rcEmail, rcResetPassword || undefined)}
+                                                                sx={{ textTransform: 'none', fontWeight: 700, color: '#475569', borderColor: '#cbd5e1' }}
+                                                            >
+                                                                {copiedText ? 'Copied to Clipboard!' : 'Copy WhatsApp Login Details'}
+                                                            </Button>
+                                                        )}
+                                                    </Box>
                                                 </Grid>
                                             </Grid>
                                         </CardContent>
@@ -707,8 +942,8 @@ export default function AdminVendorsPage() {
 
                                             <Grid container spacing={2}>
                                                 {/* Logo */}
-                                                <Grid size={{ xs: 12, sm: 4 }}>
-                                                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center', bgcolor: '#f8fafc' }}>
+                                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center', bgcolor: '#f8fafc', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                                                         <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
                                                             Shop Logo
                                                         </Typography>
@@ -723,8 +958,8 @@ export default function AdminVendorsPage() {
                                                 </Grid>
 
                                                 {/* Signature */}
-                                                <Grid size={{ xs: 12, sm: 4 }}>
-                                                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center', bgcolor: '#f8fafc' }}>
+                                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center', bgcolor: '#f8fafc', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                                                         <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
                                                             Signature
                                                         </Typography>
@@ -739,8 +974,8 @@ export default function AdminVendorsPage() {
                                                 </Grid>
 
                                                 {/* Stamp */}
-                                                <Grid size={{ xs: 12, sm: 4 }}>
-                                                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center', bgcolor: '#f8fafc' }}>
+                                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center', bgcolor: '#f8fafc', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                                                         <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
                                                             Stamp Seal
                                                         </Typography>
@@ -750,6 +985,28 @@ export default function AdminVendorsPage() {
                                                         <input type="file" ref={rcStampInputRef} accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRemoteUpload(f, 'stamp'); }} />
                                                         <Button size="small" variant="outlined" startIcon={uploadingRcAsset === 'stamp' ? <CircularProgress size={12} /> : <CloudUploadIcon sx={{ fontSize: 13 }} />} onClick={() => rcStampInputRef.current?.click()} disabled={!!uploadingRcAsset} sx={{ fontSize: 10, textTransform: 'none', py: 0.2 }}>
                                                             {uploadingRcAsset === 'stamp' ? 'Uploading...' : 'Replace'}
+                                                        </Button>
+                                                    </Box>
+                                                </Grid>
+
+                                                {/* Payment Barcode / QR */}
+                                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center', bgcolor: '#f8fafc', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                                        <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                            Payment Barcode
+                                                        </Typography>
+                                                        <Box sx={{ height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1, bgcolor: '#fff', borderRadius: 1 }}>
+                                                            {rcQrCodeUrl ? (
+                                                                <Box component="img" src={rcQrCodeUrl} alt="QR" sx={{ maxHeight: 60, maxWidth: '100%', objectFit: 'contain' }} />
+                                                            ) : (
+                                                                <Typography variant="caption" sx={{ color: '#94a3b8', fontStyle: 'italic', fontSize: 10 }}>
+                                                                    No Barcode
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                        <input type="file" ref={rcQrInputRef} accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRemoteUpload(f, 'qr'); }} />
+                                                        <Button size="small" variant="outlined" color="secondary" startIcon={uploadingRcAsset === 'qr' ? <CircularProgress size={12} /> : <CloudUploadIcon sx={{ fontSize: 13 }} />} onClick={() => rcQrInputRef.current?.click()} disabled={!!uploadingRcAsset} sx={{ fontSize: 10, textTransform: 'none', py: 0.2 }}>
+                                                            {uploadingRcAsset === 'qr' ? 'Uploading...' : 'Upload QR'}
                                                         </Button>
                                                     </Box>
                                                 </Grid>
@@ -843,6 +1100,9 @@ export default function AdminVendorsPage() {
                                     <TableHead sx={{ bgcolor: '#f8fafc' }}>
                                         <TableRow>
                                             <TableCell sx={{ fontWeight: 700 }}>Vendor / Company</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Tenant Node ID</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Prefix</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Login User ID</TableCell>
                                             <TableCell sx={{ fontWeight: 700 }}>Contact Info</TableCell>
                                             <TableCell sx={{ fontWeight: 700 }}>GSTIN</TableCell>
                                             <TableCell sx={{ fontWeight: 700 }}>Margin / kW</TableCell>
@@ -857,21 +1117,63 @@ export default function AdminVendorsPage() {
                                                 <TableCell>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                                         <Box
-                                                            component="img"
-                                                            src={v.logo_url || '/logo.png'}
-                                                            alt="Logo"
-                                                            sx={{ width: 36, height: 36, objectFit: 'contain', bgcolor: '#f1f5f9', borderRadius: 1.5, p: 0.5 }}
-                                                            onError={(e: any) => { e.target.src = '/logo.png'; }}
+                                                             component="img"
+                                                             src={v.logo_url || '/logo.png'}
+                                                             alt="Logo"
+                                                             sx={{ width: 36, height: 36, objectFit: 'contain', bgcolor: '#f1f5f9', borderRadius: 1.5, p: 0.5 }}
+                                                             onError={(e: any) => { e.target.src = '/logo.png'; }}
                                                         />
                                                         <Box>
-                                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a' }}>
-                                                                {v.name}
-                                                            </Typography>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a' }}>
+                                                                    {v.name}
+                                                                </Typography>
+                                                                {v.is_demo && (
+                                                                    <Chip label="Demo Flagship" size="small" sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 10, height: 20 }} />
+                                                                )}
+                                                            </Box>
                                                             <Typography variant="caption" sx={{ color: '#64748b' }}>
                                                                 Signatory: {v.authorized_signatory || 'N/A'}
                                                             </Typography>
                                                         </Box>
                                                     </Box>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={v.node_id || 'NODE-VNS-001'}
+                                                        size="small"
+                                                        sx={{ bgcolor: '#0f172a', color: '#38bdf8', fontWeight: 800, fontFamily: 'monospace', fontSize: 11 }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={v.quote_prefix || 'QT'}
+                                                        size="small"
+                                                        sx={{ bgcolor: '#f0f9ff', color: '#0369a1', fontWeight: 700, fontSize: 11 }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    {v.vendor_users && v.vendor_users.length > 0 ? (
+                                                        <Box>
+                                                            <Chip
+                                                                icon={<KeyIcon sx={{ fontSize: '13px !important', color: '#7c3aed !important' }} />}
+                                                                label={v.vendor_users[0].email}
+                                                                size="small"
+                                                                sx={{ bgcolor: '#f5f3ff', color: '#6d28d9', fontWeight: 700, fontFamily: 'monospace', fontSize: 11.5 }}
+                                                            />
+                                                            {v.vendor_users.length > 1 && (
+                                                                <Typography variant="caption" sx={{ display: 'block', color: '#64748b', fontSize: 10 }}>
+                                                                    +{v.vendor_users.length - 1} more
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+                                                    ) : (
+                                                        <Chip
+                                                            label="No Login Yet"
+                                                            size="small"
+                                                            sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 600, fontSize: 11 }}
+                                                        />
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Typography variant="body2">{v.phone || '-'}</Typography>
@@ -907,6 +1209,15 @@ export default function AdminVendorsPage() {
                                                 </TableCell>
                                                 <TableCell align="center">
                                                     <Stack direction="row" spacing={0.5} justifyContent="center">
+                                                        <Tooltip title="Set / Reset User ID & Password">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => openCredentialsModal(v)}
+                                                                sx={{ color: '#7c3aed', bgcolor: '#f5f3ff', '&:hover': { bgcolor: '#ede9fe' } }}
+                                                            >
+                                                                <KeyIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                         <Tooltip title="Manage on Call">
                                                             <IconButton
                                                                 size="small"
@@ -948,10 +1259,133 @@ export default function AdminVendorsPage() {
                     </Box>
                 )}
 
+                {/* DEDICATED MANAGE LOGIN CREDENTIALS DIALOG */}
+                <Dialog open={credentialsModalOpen} onClose={() => setCredentialsModalOpen(false)} maxWidth="sm" fullWidth>
+                    <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#faf5ff', borderBottom: '1px solid #f3e8ff' }}>
+                        <KeyIcon sx={{ color: '#7c3aed' }} />
+                        Customer Vendor Login Credentials — {credVendor?.name}
+                    </DialogTitle>
+                    <DialogContent sx={{ pt: 2.5 }}>
+                        {credError && <Alert severity="error" sx={{ mb: 2 }}>{credError}</Alert>}
+                        {credSuccess && <Alert severity="success" sx={{ mb: 2 }}>{credSuccess}</Alert>}
+
+                        <Typography variant="body2" sx={{ color: '#64748b', mb: 2.5 }}>
+                            Set or update the <strong>User ID (Login Email)</strong> and <strong>Password</strong> for this vendor. They can use these credentials to log in at <code>/login</code>.
+                        </Typography>
+
+                        <Stack spacing={2.5}>
+                            <TextField
+                                fullWidth
+                                label="User ID / Login Email *"
+                                type="email"
+                                value={credEmail}
+                                onChange={(e) => setCredEmail(e.target.value)}
+                                placeholder="vendor@company.com"
+                                helperText="Vendor will use this email address as their User ID to log in"
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <PersonIcon sx={{ color: '#7c3aed' }} />
+                                        </InputAdornment>
+                                    ),
+                                }}
+                            />
+
+                            <Box>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>
+                                        Password (Min 6 characters) *
+                                    </Typography>
+                                    <Button
+                                        size="small"
+                                        startIcon={<AutoAwesomeIcon sx={{ fontSize: 13 }} />}
+                                        onClick={() => setCredPassword(generateSecurePassword())}
+                                        sx={{ textTransform: 'none', fontSize: 11, fontWeight: 700, color: '#7c3aed', py: 0 }}
+                                    >
+                                        Generate Random Password
+                                    </Button>
+                                </Box>
+                                <TextField
+                                    fullWidth
+                                    type={credShowPassword ? 'text' : 'password'}
+                                    value={credPassword}
+                                    onChange={(e) => setCredPassword(e.target.value)}
+                                    placeholder="Enter new password"
+                                    helperText="Min 6 characters. Share this password with the customer vendor."
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <LockIcon sx={{ color: '#7c3aed' }} />
+                                            </InputAdornment>
+                                        ),
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => setCredShowPassword(!credShowPassword)}
+                                                    edge="end"
+                                                >
+                                                    {credShowPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                                                </IconButton>
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                />
+                            </Box>
+
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Portal Role</InputLabel>
+                                <Select
+                                    value={credRole}
+                                    label="Portal Role"
+                                    onChange={(e) => setCredRole(e.target.value as any)}
+                                >
+                                    <MenuItem value="vendor">Vendor Admin (Full Shop Management, Custom Logo & Margins)</MenuItem>
+                                    <MenuItem value="salesperson">Salesperson (Create Quotations Only)</MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            {credPassword && credEmail && (
+                                <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                                    <Box>
+                                        <Typography variant="caption" sx={{ fontWeight: 800, color: '#1e293b', display: 'block' }}>
+                                            Ready to Share with Vendor:
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: '#64748b', fontFamily: 'monospace' }}>
+                                            User ID: {credEmail} | Password: {credPassword}
+                                        </Typography>
+                                    </Box>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={copiedText ? <CheckIcon sx={{ fontSize: 14 }} /> : <ContentCopyIcon sx={{ fontSize: 14 }} />}
+                                        onClick={() => copyLoginDetailsToClipboard(credVendor?.name || 'Vendor', credEmail, credPassword)}
+                                        sx={{ textTransform: 'none', fontSize: 11, fontWeight: 700, borderColor: '#7c3aed', color: '#7c3aed' }}
+                                    >
+                                        {copiedText ? 'Copied!' : 'Copy for WhatsApp'}
+                                    </Button>
+                                </Box>
+                            )}
+                        </Stack>
+                    </DialogContent>
+                    <DialogActions sx={{ p: 2.5, bgcolor: '#f8fafc' }}>
+                        <Button onClick={() => setCredentialsModalOpen(false)} sx={{ color: '#64748b' }}>Close</Button>
+                        <Button
+                            variant="contained"
+                            onClick={handleSaveCredentialsModal}
+                            disabled={credSaving}
+                            startIcon={credSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <KeyIcon />}
+                            sx={{ bgcolor: '#7c3aed', '&:hover': { bgcolor: '#6d28d9' }, fontWeight: 700 }}
+                        >
+                            {credSaving ? 'Saving...' : 'Save & Activate Login'}
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
                 {/* CREATE VENDOR DIALOG */}
                 <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
                     <DialogTitle sx={{ fontWeight: 800 }}>
-                        Register New Vendor Account
+                        Register New Customer Vendor Account
                     </DialogTitle>
                     <DialogContent dividers>
                         {errorMsg && (
@@ -963,14 +1397,107 @@ export default function AdminVendorsPage() {
                                 <TextField fullWidth label="Company / Shop Name *" value={modalName} onChange={(e) => setModalName(e.target.value)} required />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField fullWidth label="Authorized Signatory Name" value={modalSignatory} onChange={(e) => setModalSignatory(e.target.value)} placeholder="Karan Gond" />
+                                <TextField fullWidth label="Authorized Signatory Name" value={modalSignatory} onChange={(e) => setModalSignatory(e.target.value)} placeholder="e.g. Karan Gond" />
+                            </Grid>
+
+                            {/* Multi-Tenant Node ID & Prefix Configuration */}
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <TextField
+                                    fullWidth
+                                    label="Tenant Node ID (Optional)"
+                                    value={modalNodeId}
+                                    onChange={(e) => setModalNodeId(e.target.value.toUpperCase())}
+                                    placeholder="e.g. NODE-VNS-002"
+                                    helperText="Leave empty to auto-generate based on city & name"
+                                    size="small"
+                                />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField fullWidth label="Vendor Login Email" type="email" value={modalEmail} onChange={(e) => setModalEmail(e.target.value)} placeholder="vendor@shop.com" />
+                                <TextField
+                                    fullWidth
+                                    label="Quote Number Prefix (Optional)"
+                                    value={modalQuotePrefix}
+                                    onChange={(e) => setModalQuotePrefix(e.target.value.toUpperCase())}
+                                    placeholder="e.g. KSS, SUN, APX"
+                                    helperText="Prefix for sequential quotes (e.g. SUN-2026-0001)"
+                                    size="small"
+                                />
                             </Grid>
-                            <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField fullWidth label="Vendor Password" type="text" value={modalPassword} onChange={(e) => setModalPassword(e.target.value)} placeholder="Min 6 characters" />
+
+                            {/* Prominent Login Credentials Group */}
+                            <Grid size={{ xs: 12 }}>
+                                <Box sx={{ p: 2, bgcolor: '#f5f3ff', borderRadius: 2, border: '1px solid #ddd6fe' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <KeyIcon sx={{ color: '#7c3aed', fontSize: 20 }} />
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#5b21b6' }}>
+                                                Customer Vendor Login Credentials (User ID & Password)
+                                            </Typography>
+                                        </Box>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={<AutoAwesomeIcon sx={{ fontSize: 13 }} />}
+                                            onClick={() => setModalPassword(generateSecurePassword())}
+                                            sx={{ textTransform: 'none', fontSize: 11, fontWeight: 700, color: '#7c3aed', borderColor: '#c4b5fd' }}
+                                        >
+                                            Generate Password
+                                        </Button>
+                                    </Box>
+                                    <Grid container spacing={2}>
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <TextField
+                                                fullWidth
+                                                label="User ID / Login Email *"
+                                                type="email"
+                                                value={modalEmail}
+                                                onChange={(e) => setModalEmail(e.target.value)}
+                                                placeholder="e.g. vendor@shop.com"
+                                                helperText="Vendor will use this email address to log in"
+                                                size="small"
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <PersonIcon sx={{ color: '#7c3aed', fontSize: 18 }} />
+                                                        </InputAdornment>
+                                                    ),
+                                                }}
+                                            />
+                                        </Grid>
+                                        <Grid size={{ xs: 12, sm: 6 }}>
+                                            <TextField
+                                                fullWidth
+                                                label="Vendor Password *"
+                                                type={modalShowPassword ? 'text' : 'password'}
+                                                value={modalPassword}
+                                                onChange={(e) => setModalPassword(e.target.value)}
+                                                placeholder="Min 6 characters"
+                                                helperText="Password shared with vendor"
+                                                size="small"
+                                                InputProps={{
+                                                    startAdornment: (
+                                                        <InputAdornment position="start">
+                                                            <LockIcon sx={{ color: '#7c3aed', fontSize: 18 }} />
+                                                        </InputAdornment>
+                                                    ),
+                                                    endAdornment: (
+                                                        <InputAdornment position="end">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => setModalShowPassword(!modalShowPassword)}
+                                                                edge="end"
+                                                            >
+                                                                {modalShowPassword ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                                                            </IconButton>
+                                                        </InputAdornment>
+                                                    ),
+                                                }}
+                                            />
+                                        </Grid>
+                                    </Grid>
+                                </Box>
                             </Grid>
+
                             <Grid size={{ xs: 12, sm: 6 }}>
                                 <TextField fullWidth label="Phone Number" value={modalPhone} onChange={(e) => setModalPhone(e.target.value)} />
                             </Grid>
@@ -1012,7 +1539,7 @@ export default function AdminVendorsPage() {
                     <DialogActions sx={{ p: 2.5 }}>
                         <Button onClick={() => setDialogOpen(false)} sx={{ color: '#64748b' }}>Cancel</Button>
                         <Button variant="contained" onClick={handleCreateVendor} disabled={saving} sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 700 }}>
-                            {saving ? 'Creating...' : 'Provision Vendor Account'}
+                            {saving ? 'Creating...' : 'Provision Vendor & Credentials'}
                         </Button>
                     </DialogActions>
                 </Dialog>

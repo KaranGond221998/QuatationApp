@@ -60,6 +60,10 @@ export type Quotation = {
     salesperson: string | null;
     status: string;
     pdf_url: string | null;
+    pdf_storage_path?: string | null;
+    tenant_id?: string | null;
+    vendor_id?: string | null;
+    node_id?: string | null;
     created_at: string;
 };
 
@@ -131,6 +135,11 @@ export type Vendor = {
     id: string;
     name: string;
     slug?: string | null;
+    node_id?: string | null;
+    quote_prefix?: string | null;
+    qr_code_url?: string | null;
+    plan_tier?: string | null;
+    is_demo?: boolean;
     tagline?: string | null;
     gstin?: string | null;
     phone?: string | null;
@@ -151,6 +160,7 @@ export type Vendor = {
     default_margin?: number;
     components_settings?: any;
     status: 'active' | 'suspended';
+    vendor_users?: VendorUser[];
     created_at?: string;
     updated_at?: string;
 };

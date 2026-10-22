@@ -42,6 +42,7 @@ export default function VendorProfilePage() {
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const [uploadingSignature, setUploadingSignature] = useState(false);
     const [uploadingStamp, setUploadingStamp] = useState(false);
+    const [uploadingQr, setUploadingQr] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
 
@@ -64,10 +65,11 @@ export default function VendorProfilePage() {
     const [ifsc, setIfsc] = useState('');
     const [upiId, setUpiId] = useState('');
 
-    // Brand Assets (URLs in Supabase Storage vendor-assets bucket)
+    // Brand Assets (URLs in Supabase Storage vendor-assets bucket sandboxed by node_id)
     const [logoUrl, setLogoUrl] = useState('/logo.png');
     const [signatureUrl, setSignatureUrl] = useState('/signature.png');
     const [stampUrl, setStampUrl] = useState('/stamp.png');
+    const [qrCodeUrl, setQrCodeUrl] = useState('');
 
     // Component & Pricing Settings
     const [defaultMargin, setDefaultMargin] = useState(0);
@@ -79,6 +81,7 @@ export default function VendorProfilePage() {
     const logoInputRef = useRef<HTMLInputElement>(null);
     const signatureInputRef = useRef<HTMLInputElement>(null);
     const stampInputRef = useRef<HTMLInputElement>(null);
+    const qrInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -107,6 +110,7 @@ export default function VendorProfilePage() {
             setLogoUrl(vendor.logo_url || '/logo.png');
             setSignatureUrl(vendor.signature_url || '/signature.png');
             setStampUrl(vendor.stamp_url || '/stamp.png');
+            setQrCodeUrl(vendor.qr_code_url || '');
 
             setDefaultMargin(Number(vendor.default_margin) || 0);
 
@@ -118,13 +122,14 @@ export default function VendorProfilePage() {
         }
     }, [user, vendor, authLoading, router]);
 
-    // Handle Asset Upload to Supabase Storage Bucket 'vendor-assets'
-    const handleFileUpload = async (file: File, type: 'logo' | 'signature' | 'stamp') => {
+    // Handle Asset Upload to Supabase Storage Bucket 'vendor-assets' (sandboxed by node_id)
+    const handleFileUpload = async (file: File, type: 'logo' | 'signature' | 'stamp' | 'qr') => {
         if (!vendor?.id) return;
 
         if (type === 'logo') setUploadingLogo(true);
         if (type === 'signature') setUploadingSignature(true);
         if (type === 'stamp') setUploadingStamp(true);
+        if (type === 'qr') setUploadingQr(true);
 
         try {
             const formData = new FormData();
@@ -143,14 +148,16 @@ export default function VendorProfilePage() {
             if (type === 'logo') setLogoUrl(json.url);
             if (type === 'signature') setSignatureUrl(json.url);
             if (type === 'stamp') setStampUrl(json.url);
+            if (type === 'qr') setQrCodeUrl(json.url);
 
-            setSuccessMsg(`${type.toUpperCase()} uploaded successfully! Remember to save changes below.`);
+            setSuccessMsg(`${type.toUpperCase()} uploaded successfully to your private tenant vault! Remember to click Save below.`);
         } catch (err: any) {
             setErrorMsg(err.message || 'Failed to upload asset');
         } finally {
             if (type === 'logo') setUploadingLogo(false);
             if (type === 'signature') setUploadingSignature(false);
             if (type === 'stamp') setUploadingStamp(false);
+            if (type === 'qr') setUploadingQr(false);
         }
     };
 
@@ -193,6 +200,7 @@ export default function VendorProfilePage() {
                     logo_url: logoUrl,
                     signature_url: signatureUrl,
                     stamp_url: stampUrl,
+                    qr_code_url: qrCodeUrl || null,
                     default_margin: Number(defaultMargin) || 0,
                     components_settings: componentsSettings,
                 }),
@@ -225,14 +233,26 @@ export default function VendorProfilePage() {
                             Dashboard
                         </Button>
                         <Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                                 <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b' }}>
                                     Shop Settings & Brand Assets
                                 </Typography>
-                                <Chip label="Vendor Workspace" size="small" sx={{ bgcolor: '#ff9800', color: '#fff', fontWeight: 700 }} />
+                                <Chip 
+                                    label={`NODE: ${vendor?.node_id || 'NODE-VNS-001'}`} 
+                                    size="small" 
+                                    sx={{ bgcolor: '#0f172a', color: '#38bdf8', fontWeight: 800, fontFamily: 'monospace' }} 
+                                />
+                                <Chip 
+                                    label={`Prefix: ${vendor?.quote_prefix || 'KSS'}`} 
+                                    size="small" 
+                                    sx={{ bgcolor: '#0284c7', color: '#fff', fontWeight: 700 }} 
+                                />
+                                {vendor?.is_demo && (
+                                    <Chip label="Demo Showcase" size="small" sx={{ bgcolor: '#f59e0b', color: '#fff', fontWeight: 700 }} />
+                                )}
                             </Box>
                             <Typography variant="body2" sx={{ color: '#64748b' }}>
-                                Manage your company logo, official stamp seal, bank details & component defaults
+                                Manage your company logo, official stamp seal, payment barcode, bank details & component defaults
                             </Typography>
                         </Box>
                     </Box>
@@ -264,20 +284,20 @@ export default function VendorProfilePage() {
                     {/* Brand Assets Upload Card */}
                     <Card sx={{ mb: 4, borderRadius: 3, border: '1px solid #fed7aa', boxShadow: '0 4px 16px rgba(255,152,0,0.08)' }}>
                         <CardContent sx={{ p: 3 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1 }}>
                                 <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#c2410c', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <VerifiedIcon fontSize="small" /> Brand Visual Assets (Stored in Cloud Bucket)
+                                    <VerifiedIcon fontSize="small" /> Brand Visual Assets & Payment Barcode (Cloud Vault)
                                 </Typography>
-                                <Chip label="Transparent PNGs Recommended" size="small" sx={{ bgcolor: '#ffedd5', color: '#c2410c', fontWeight: 600, fontSize: 11 }} />
+                                <Chip label="Private Tenant Storage Sandbox" size="small" sx={{ bgcolor: '#ffedd5', color: '#c2410c', fontWeight: 600, fontSize: 11 }} />
                             </Box>
                             <Typography variant="body2" sx={{ color: '#64748b', mb: 3 }}>
-                                When you create an account, default Karan Solar seals are present. Upload your own shop logo, signature, and stamp here to fully white-label your customer quotes.
+                                Upload your shop's custom logo, authorized stamp, signature, and UPI payment barcode. All assets are isolated strictly inside your tenant storage folder.
                             </Typography>
 
-                            <Grid container spacing={3}>
+                            <Grid container spacing={2.5}>
                                 {/* 1. Company Logo */}
-                                <Grid size={{ xs: 12, md: 4 }}>
-                                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed #cbd5e1', bgcolor: '#fff', textAlign: 'center' }}>
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed #cbd5e1', bgcolor: '#fff', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                                         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
                                             Company Logo
                                         </Typography>
@@ -313,9 +333,47 @@ export default function VendorProfilePage() {
                                     </Box>
                                 </Grid>
 
-                                {/* 2. Signature */}
-                                <Grid size={{ xs: 12, md: 4 }}>
-                                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed #cbd5e1', bgcolor: '#fff', textAlign: 'center' }}>
+                                {/* 2. Stamp / Seal */}
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed #cbd5e1', bgcolor: '#fff', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                                            Official Stamp / Seal
+                                        </Typography>
+                                        <Box sx={{ height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5, p: 1 }}>
+                                            <Box
+                                                component="img"
+                                                src={stampUrl || '/stamp.png'}
+                                                alt="Stamp"
+                                                sx={{ maxHeight: 75, maxWidth: '100%', objectFit: 'contain' }}
+                                                onError={(e: any) => { e.target.src = '/stamp.png'; }}
+                                            />
+                                        </Box>
+                                        <input
+                                            type="file"
+                                            ref={stampInputRef}
+                                            accept="image/*"
+                                            style={{ display: 'none' }}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleFileUpload(file, 'stamp');
+                                            }}
+                                        />
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={uploadingStamp ? <CircularProgress size={14} /> : <CloudUploadIcon />}
+                                            onClick={() => stampInputRef.current?.click()}
+                                            disabled={uploadingStamp}
+                                            sx={{ textTransform: 'none', fontWeight: 600, fontSize: 11 }}
+                                        >
+                                            {uploadingStamp ? 'Uploading...' : 'Upload Stamp'}
+                                        </Button>
+                                    </Box>
+                                </Grid>
+
+                                {/* 3. Signature */}
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed #cbd5e1', bgcolor: '#fff', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                                         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
                                             Authorized Signature
                                         </Typography>
@@ -351,40 +409,46 @@ export default function VendorProfilePage() {
                                     </Box>
                                 </Grid>
 
-                                {/* 3. Stamp / Seal */}
-                                <Grid size={{ xs: 12, md: 4 }}>
-                                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed #cbd5e1', bgcolor: '#fff', textAlign: 'center' }}>
+                                {/* 4. Payment Barcode / UPI QR Code */}
+                                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed #cbd5e1', bgcolor: '#fff', textAlign: 'center', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                                         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
-                                            Official Stamp / Seal
+                                            Payment Barcode / QR
                                         </Typography>
                                         <Box sx={{ height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5, p: 1 }}>
-                                            <Box
-                                                component="img"
-                                                src={stampUrl || '/stamp.png'}
-                                                alt="Stamp"
-                                                sx={{ maxHeight: 75, maxWidth: '100%', objectFit: 'contain' }}
-                                                onError={(e: any) => { e.target.src = '/stamp.png'; }}
-                                            />
+                                            {qrCodeUrl ? (
+                                                <Box
+                                                    component="img"
+                                                    src={qrCodeUrl}
+                                                    alt="Payment QR"
+                                                    sx={{ maxHeight: 75, maxWidth: '100%', objectFit: 'contain' }}
+                                                />
+                                            ) : (
+                                                <Typography variant="caption" sx={{ color: '#94a3b8', fontStyle: 'italic' }}>
+                                                    {upiId ? `Auto-generated from ${upiId}` : 'No Barcode Uploaded'}
+                                                </Typography>
+                                            )}
                                         </Box>
                                         <input
                                             type="file"
-                                            ref={stampInputRef}
+                                            ref={qrInputRef}
                                             accept="image/*"
                                             style={{ display: 'none' }}
                                             onChange={(e) => {
                                                 const file = e.target.files?.[0];
-                                                if (file) handleFileUpload(file, 'stamp');
+                                                if (file) handleFileUpload(file, 'qr');
                                             }}
                                         />
                                         <Button
                                             size="small"
                                             variant="outlined"
-                                            startIcon={uploadingStamp ? <CircularProgress size={14} /> : <CloudUploadIcon />}
-                                            onClick={() => stampInputRef.current?.click()}
-                                            disabled={uploadingStamp}
+                                            color="secondary"
+                                            startIcon={uploadingQr ? <CircularProgress size={14} /> : <CloudUploadIcon />}
+                                            onClick={() => qrInputRef.current?.click()}
+                                            disabled={uploadingQr}
                                             sx={{ textTransform: 'none', fontWeight: 600, fontSize: 11 }}
                                         >
-                                            {uploadingStamp ? 'Uploading...' : 'Upload Stamp'}
+                                            {uploadingQr ? 'Uploading...' : 'Upload Barcode/QR'}
                                         </Button>
                                     </Box>
                                 </Grid>

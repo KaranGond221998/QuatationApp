@@ -42,7 +42,7 @@ export const generateQuoteHtml = (data: any): string => {
     /* Header */
     .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #1e3a5f; }
     .logo-section { display: flex; align-items: center; gap: 12px; }
-    .logo { width: 60px; height: 60px; object-fit: contain; }
+    .logo { max-height: 95px; max-width: 240px; width: auto; height: auto; object-fit: contain; }
     .company-name { font-size: 24px; font-weight: 900; color: #1e3a5f; letter-spacing: -0.5px; }
     .company-tagline { font-size: 9px; font-weight: 600; color: #64748b; margin-top: 4px; letter-spacing: 1px; text-transform: uppercase; }
     .company-info { font-size: 9px; color: #64748b; margin-top: 8px; line-height: 1.6; }

@@ -12,7 +12,6 @@ import {
     Chip,
     Container,
     CircularProgress,
-    Alert,
     IconButton,
     Tooltip,
 } from '@mui/material';
@@ -26,14 +25,18 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LaunchIcon from '@mui/icons-material/Launch';
 import LockPersonIcon from '@mui/icons-material/LockPerson';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import BuildIcon from '@mui/icons-material/Build';
+import LoginIcon from '@mui/icons-material/Login';
+import WifiOffIcon from '@mui/icons-material/WifiOff';
 import { useAuth } from '@/context/AuthContext';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const router = useRouter();
-    const { user, role, loading, signOut } = useAuth();
+    const { user, role, loading, signOut, vendor } = useAuth();
 
-    // Check loading
+    // Loading indicator
     if (loading) {
         return (
             <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#0b192c' }}>
@@ -42,10 +45,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         );
     }
 
-    // Role-based access control: Only super_admin / developer can access /admin
     const isDeveloper = user && role === 'super_admin';
+    const isVendorsManagementPage = pathname === '/admin/vendors';
 
-    if (!isDeveloper) {
+    // Only protect the multi-tenant remote management console (/admin/vendors)
+    if (isVendorsManagementPage && !isDeveloper) {
         return (
             <Box
                 sx={{
@@ -87,11 +91,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         </Box>
 
                         <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>
-                            Platform Owner Area
+                            Super Admin Console
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3 }}>
-                            Layer 1 is reserved for the platform developer / owner to configure vendors, baseline catalogs, and credentials.
-                            {user ? ` You are currently signed in as a vendor (${user.email}).` : ' You are not currently signed in.'}
+                            Managing other tenant accounts and live remote control requires platform owner credentials.
+                            {user ? ` You are currently signed in as ${user.email} (${role}).` : ' You are currently in offline / guest mode.'}
                         </Typography>
 
                         <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -100,14 +104,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 onClick={() => router.push('/login')}
                                 sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 700 }}
                             >
-                                Sign In as Developer
+                                Sign In as Super Admin
                             </Button>
                             <Button
                                 variant="outlined"
-                                onClick={() => router.push('/')}
+                                onClick={() => router.push('/admin')}
                                 sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.4)', fontWeight: 700 }}
                             >
-                                Go to Vendor Quotation App
+                                Back to Admin Dashboard
+                            </Button>
+                            <Button
+                                variant="text"
+                                onClick={() => router.push('/')}
+                                sx={{ color: '#cbd5e1', fontWeight: 600 }}
+                            >
+                                Quotation Builder
                             </Button>
                         </Box>
                     </Box>
@@ -116,39 +127,74 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         );
     }
 
+    // Navigation items available to all users (online, offline, vendor, super admin)
     const navItems = [
         { label: 'Overview', href: '/admin', icon: <DashboardIcon sx={{ fontSize: 18 }} /> },
-        { label: 'Vendors & Remote Control', href: '/admin/vendors', icon: <StorefrontIcon sx={{ fontSize: 18 }} /> },
-        { label: 'Global Quotations', href: '/admin/quotations', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
-        { label: 'Structure Catalog', href: '/admin/structure-catalog', icon: <Inventory2Icon sx={{ fontSize: 18 }} /> },
-        { label: 'Products', href: '/admin/products', icon: <InventoryIcon sx={{ fontSize: 18 }} /> },
         { label: 'BOM Components', href: '/admin/components', icon: <SettingsInputComponentIcon sx={{ fontSize: 18 }} /> },
+        { label: 'Structure Catalog', href: '/admin/structure-catalog', icon: <Inventory2Icon sx={{ fontSize: 18 }} /> },
+        { label: 'Solar Products', href: '/admin/products', icon: <InventoryIcon sx={{ fontSize: 18 }} /> },
+        { label: 'Quotations', href: '/admin/quotations', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
+        { label: 'Shop Settings', href: '/vendor/profile', icon: <ManageAccountsIcon sx={{ fontSize: 18 }} /> },
     ];
+
+    // Add Vendors management tab if developer/super_admin
+    if (isDeveloper) {
+        navItems.splice(1, 0, { label: 'Vendors & Remote', href: '/admin/vendors', icon: <StorefrontIcon sx={{ fontSize: 18 }} /> });
+    }
 
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: '#f1f5f9' }}>
             <AppBar position="sticky" sx={{ bgcolor: '#0f172a', borderBottom: '1px solid rgba(255,255,255,0.1)' }} elevation={0}>
-                <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', minHeight: 56, px: { xs: 2, md: 3 } }}>
+                <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', minHeight: 56, px: { xs: 2, md: 3 }, py: 0.5, gap: 1 }}>
                     {/* Brand & Mode */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Link href="/admin" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
                             <AdminPanelSettingsIcon sx={{ color: '#ff9800', fontSize: 24 }} />
                             <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>
-                                Platform Master Console
+                                Admin Dashboard
                             </Typography>
-                        </Box>
-                        <Chip
-                            label="Layer 1: Developer Owner"
-                            size="small"
-                            sx={{
-                                bgcolor: 'rgba(255, 152, 0, 0.15)',
-                                color: '#ff9800',
-                                border: '1px solid rgba(255, 152, 0, 0.3)',
-                                fontWeight: 800,
-                                fontSize: '0.7rem',
-                                height: 22,
-                            }}
-                        />
+                        </Link>
+                        {isDeveloper ? (
+                            <Chip
+                                label="Developer Master"
+                                size="small"
+                                sx={{
+                                    bgcolor: 'rgba(255, 152, 0, 0.15)',
+                                    color: '#ff9800',
+                                    border: '1px solid rgba(255, 152, 0, 0.3)',
+                                    fontWeight: 800,
+                                    fontSize: '0.7rem',
+                                    height: 22,
+                                }}
+                            />
+                        ) : vendor ? (
+                            <Chip
+                                label={vendor.name || 'Vendor'}
+                                size="small"
+                                sx={{
+                                    bgcolor: 'rgba(34, 197, 94, 0.15)',
+                                    color: '#4ade80',
+                                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                                    fontWeight: 700,
+                                    fontSize: '0.7rem',
+                                    height: 22,
+                                }}
+                            />
+                        ) : (
+                            <Chip
+                                icon={<WifiOffIcon sx={{ fontSize: '13px !important', color: '#94a3b8 !important' }} />}
+                                label="Offline / Local"
+                                size="small"
+                                sx={{
+                                    bgcolor: 'rgba(148, 163, 184, 0.15)',
+                                    color: '#94a3b8',
+                                    border: '1px solid rgba(148, 163, 184, 0.3)',
+                                    fontWeight: 600,
+                                    fontSize: '0.68rem',
+                                    height: 22,
+                                }}
+                            />
+                        )}
                     </Box>
 
                     {/* Nav Links */}
@@ -180,7 +226,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </Box>
 
                     {/* Right side controls */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Link href="/service" style={{ textDecoration: 'none' }}>
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<BuildIcon sx={{ fontSize: 13 }} />}
+                                sx={{
+                                    color: '#e2e8f0',
+                                    borderColor: 'rgba(255,255,255,0.25)',
+                                    '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.05)' },
+                                    fontWeight: 600,
+                                    textTransform: 'none',
+                                    fontSize: '0.78rem',
+                                    borderRadius: 2,
+                                }}
+                            >
+                                Service
+                            </Button>
+                        </Link>
+
                         <Link href="/" style={{ textDecoration: 'none' }}>
                             <Button
                                 variant="contained"
@@ -195,26 +260,45 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     borderRadius: 2,
                                 }}
                             >
-                                Quotation App (Layer 2)
+                                Quotation App
                             </Button>
                         </Link>
 
-                        <Tooltip title={`Signed in as: ${user.email}`}>
-                            <Chip
-                                label={user.email}
-                                size="small"
-                                sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: '#cbd5e1', fontSize: '0.72rem', maxWidth: 160 }}
-                            />
-                        </Tooltip>
+                        {user ? (
+                            <>
+                                <Tooltip title={`Signed in as: ${user.email}`}>
+                                    <Chip
+                                        label={user.email}
+                                        size="small"
+                                        sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: '#cbd5e1', fontSize: '0.72rem', maxWidth: 160 }}
+                                    />
+                                </Tooltip>
 
-                        <IconButton
-                            size="small"
-                            onClick={() => signOut()}
-                            title="Sign Out"
-                            sx={{ color: 'rgba(255,255,255,0.7)', '&:hover': { color: '#ef4444' } }}
-                        >
-                            <LogoutIcon sx={{ fontSize: 18 }} />
-                        </IconButton>
+                                <IconButton
+                                    size="small"
+                                    onClick={() => signOut()}
+                                    title="Sign Out"
+                                    sx={{ color: 'rgba(255,255,255,0.7)', '&:hover': { color: '#ef4444' } }}
+                                >
+                                    <LogoutIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                            </>
+                        ) : (
+                            <Link href="/login" style={{ textDecoration: 'none' }}>
+                                <Button
+                                    size="small"
+                                    startIcon={<LoginIcon sx={{ fontSize: 14 }} />}
+                                    sx={{
+                                        color: '#cbd5e1',
+                                        textTransform: 'none',
+                                        fontSize: '0.78rem',
+                                        '&:hover': { color: '#fff' }
+                                    }}
+                                >
+                                    Sign In
+                                </Button>
+                            </Link>
+                        )}
                     </Box>
                 </Toolbar>
             </AppBar>

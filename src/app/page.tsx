@@ -131,8 +131,39 @@ function QuotationBuilder() {
   // Multi-vendor Authentication & Tenant Context
   const { user, vendor, role, signOut, allVendors, switchVendor } = useAuth();
 
-  // Company Selection
+  // Company Selection & Multi-Vendor Tenant Resolution
+  const resolveVendorId = useCallback((id: string, list: any[]) => {
+    if (!id) return '';
+    if (list.some(v => v.id === id)) return id;
+    const match = list.find(v =>
+      v.slug === id ||
+      (id === 'arpit' && (v.slug === 'arpit-solar' || v.name?.toLowerCase().includes('arpit'))) ||
+      (id === 'karan' && (v.slug === 'karan-solar' || v.name?.toLowerCase().includes('karan')))
+    );
+    return match ? match.id : '';
+  }, []);
+
   const [selectedCompanyId, setSelectedCompanyId] = useState(companies[0].id);
+
+  // Effective ID guaranteed to match the exact options rendered in the Select dropdown
+  const effectiveCompanyId = useMemo(() => {
+    if (allVendors && allVendors.length > 0) {
+      const resolved = resolveVendorId(selectedCompanyId, allVendors);
+      if (resolved) return resolved;
+      if (vendor?.id && allVendors.some(v => v.id === vendor.id)) return vendor.id;
+      return allVendors[0].id;
+    }
+    // Fallback before allVendors loads
+    if (companies.some(c => c.id === selectedCompanyId)) return selectedCompanyId;
+    return companies[0]?.id || '';
+  }, [allVendors, selectedCompanyId, vendor, resolveVendorId]);
+
+  // Keep selectedCompanyId in sync with effectiveCompanyId
+  useEffect(() => {
+    if (effectiveCompanyId && selectedCompanyId !== effectiveCompanyId) {
+      setSelectedCompanyId(effectiveCompanyId);
+    }
+  }, [effectiveCompanyId, selectedCompanyId]);
 
   // Sync selectedCompanyId when vendor context changes
   useEffect(() => {
@@ -142,8 +173,9 @@ function QuotationBuilder() {
   }, [vendor]);
 
   const activeCompany = useMemo(() => {
+    const targetId = effectiveCompanyId || selectedCompanyId;
     // Check if matching a loaded vendor
-    const foundVendor = allVendors.find(v => v.id === selectedCompanyId) || (vendor && vendor.id === selectedCompanyId ? vendor : null);
+    const foundVendor = allVendors.find(v => v.id === targetId) || (vendor && vendor.id === targetId ? vendor : null);
     if (foundVendor) {
       return {
         id: foundVendor.id,
@@ -165,25 +197,26 @@ function QuotationBuilder() {
         },
         logo: foundVendor.logo_url || "/logo.png",
         signature: foundVendor.signature_url || "/signature.png",
-        stamp: foundVendor.stamp_url || "/stamp.png",
+        stamp: foundVendor.stamp_url || null,
         authorizedSignatory: foundVendor.authorized_signatory || "Authorized Signatory",
         defaultMargin: foundVendor.default_margin || 0,
         componentsSettings: foundVendor.components_settings || {},
       };
     }
-    return companies.find(c => c.id === selectedCompanyId) || companies[0];
-  }, [selectedCompanyId, allVendors, vendor]);
+    return companies.find(c => c.id === targetId || (targetId === 'arpit' && c.id === 'a0000000-0000-0000-0000-000000000001')) || companies[0];
+  }, [effectiveCompanyId, selectedCompanyId, allVendors, vendor]);
 
   // Sync vendor component defaults when vendor/company changes
   useEffect(() => {
-    const foundVendor = allVendors.find(v => v.id === selectedCompanyId) || (vendor && vendor.id === selectedCompanyId ? vendor : null);
+    const targetId = effectiveCompanyId || selectedCompanyId;
+    const foundVendor = allVendors.find(v => v.id === targetId) || (vendor && vendor.id === targetId ? vendor : null);
     if (foundVendor?.components_settings) {
       const cs = foundVendor.components_settings;
       if (cs.preferredPanelBrand) setPanelBrand(cs.preferredPanelBrand);
       if (cs.preferredInverterBrand) setInverterBrand(cs.preferredInverterBrand);
       if (cs.preferredStructureMake) setB2bStructureMake(cs.preferredStructureMake);
     }
-  }, [selectedCompanyId, allVendors, vendor]);
+  }, [effectiveCompanyId, selectedCompanyId, allVendors, vendor]);
 
   // Customer Details
   const [customerName, setCustomerName] = useState("");
@@ -1108,8 +1141,8 @@ function QuotationBuilder() {
 
   const resolveMediaUrl = (url?: string) => {
     if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    return origin ? `${origin}${url}` : url;
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+    return url.startsWith('/') ? url : `/${url}`;
   };
 
   return (
@@ -1200,30 +1233,55 @@ function QuotationBuilder() {
               Quotation Builder
             </Typography>
             <Box sx={{ display: "flex", gap: 0.8, alignItems: "center", flexWrap: "wrap" }}>
+              {/* Always visible core module links from original repo */}
+              <Link href="/service" style={{ textDecoration: 'none' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    color: "white",
+                    borderColor: "rgba(255,255,255,0.4)",
+                    "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
+                    textTransform: "none",
+                    fontWeight: "bold",
+                    px: 1.2,
+                    py: 0.2,
+                    fontSize: 11
+                  }}
+                >
+                  Service
+                </Button>
+              </Link>
+
+              <Link href="/admin" style={{ textDecoration: 'none' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<AdminPanelSettings sx={{ fontSize: 13 }} />}
+                  sx={{
+                    color: "white",
+                    borderColor: "rgba(255,255,255,0.4)",
+                    "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
+                    textTransform: "none",
+                    fontWeight: "bold",
+                    px: 1.2,
+                    py: 0.2,
+                    fontSize: 11
+                  }}
+                >
+                  Admin
+                </Button>
+              </Link>
+
               {user ? (
                 role === 'super_admin' ? (
                   /* DEVELOPER / SUPER ADMIN CONTROLS */
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
-                    <Chip
-                      label="👑 Developer"
-                      size="small"
-                      sx={{ bgcolor: "#0f172a", color: "#fff", fontWeight: 800, fontSize: 10.5, height: 24 }}
-                    />
-                    <Link href="/admin" style={{ textDecoration: 'none' }}>
+                    <Link href="/admin/vendors" style={{ textDecoration: 'none' }}>
                       <Button
                         variant="contained"
                         size="small"
-                        startIcon={<AdminPanelSettings sx={{ fontSize: 13 }} />}
                         sx={{ bgcolor: "#0f172a", '&:hover': { bgcolor: '#1e293b' }, textTransform: 'none', fontWeight: 700, px: 1, py: 0.2, fontSize: 10.5 }}
-                      >
-                        Master Console
-                      </Button>
-                    </Link>
-                    <Link href="/admin/vendors" style={{ textDecoration: 'none' }}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        sx={{ color: "white", borderColor: "rgba(255,255,255,0.4)", textTransform: 'none', fontWeight: 600, px: 1, py: 0.2, fontSize: 10.5 }}
                       >
                         Vendors
                       </Button>
@@ -1255,13 +1313,13 @@ function QuotationBuilder() {
                       size="small"
                       sx={{ bgcolor: "rgba(255,152,0,0.2)", color: "#ff9800", fontWeight: 700, fontSize: 10.5, height: 24 }}
                     />
-                    <Link href="/vendor/dashboard" style={{ textDecoration: 'none' }}>
+                    <Link href="/vendor/profile" style={{ textDecoration: 'none' }}>
                       <Button
                         variant="outlined"
                         size="small"
                         sx={{ color: "white", borderColor: "rgba(255,255,255,0.4)", textTransform: 'none', fontWeight: 600, px: 1, py: 0.2, fontSize: 10.5 }}
                       >
-                        Dashboard
+                        Shop Profile
                       </Button>
                     </Link>
                     <Link href="/vendor/quotations" style={{ textDecoration: 'none' }}>
@@ -1271,15 +1329,6 @@ function QuotationBuilder() {
                         sx={{ color: "white", borderColor: "rgba(255,255,255,0.4)", textTransform: 'none', fontWeight: 600, px: 1, py: 0.2, fontSize: 10.5 }}
                       >
                         My Quotes
-                      </Button>
-                    </Link>
-                    <Link href="/vendor/profile" style={{ textDecoration: 'none' }}>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        sx={{ color: "white", borderColor: "rgba(255,255,255,0.4)", textTransform: 'none', fontWeight: 600, px: 1, py: 0.2, fontSize: 10.5 }}
-                      >
-                        Shop Profile
                       </Button>
                     </Link>
                     <IconButton
@@ -1293,8 +1342,26 @@ function QuotationBuilder() {
                   </Box>
                 )
               ) : (
-                /* GUEST LOGIN BUTTON */
+                /* GUEST / OFFLINE CONTROLS */
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                  <Link href="/vendor/profile" style={{ textDecoration: 'none' }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      sx={{
+                        color: "white",
+                        borderColor: "rgba(255,255,255,0.4)",
+                        "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
+                        textTransform: "none",
+                        fontWeight: 600,
+                        px: 1,
+                        py: 0.2,
+                        fontSize: 10.5
+                      }}
+                    >
+                      Shop Profile
+                    </Button>
+                  </Link>
                   <Link href="/login" style={{ textDecoration: 'none' }}>
                     <Button
                       variant="contained"
@@ -1305,31 +1372,12 @@ function QuotationBuilder() {
                         "&:hover": { bgcolor: "#f57c00" },
                         textTransform: "none",
                         fontWeight: 800,
-                        px: 1.4,
-                        py: 0.3,
-                        fontSize: 11
-                      }}
-                    >
-                      Vendor Sign In
-                    </Button>
-                  </Link>
-                  <Link href="/login" style={{ textDecoration: 'none' }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      startIcon={<AdminPanelSettings sx={{ fontSize: 13 }} />}
-                      sx={{
-                        color: "white",
-                        borderColor: "rgba(255,255,255,0.4)",
-                        "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
-                        textTransform: "none",
-                        fontWeight: "bold",
-                        px: 1,
-                        py: 0.3,
+                        px: 1.2,
+                        py: 0.2,
                         fontSize: 10.5
                       }}
                     >
-                      Developer
+                      Sign In
                     </Button>
                   </Link>
                 </Box>
@@ -1378,7 +1426,7 @@ function QuotationBuilder() {
               <FormControl fullWidth size="small">
                 <InputLabel>Active Vendor Simulator</InputLabel>
                 <Select
-                  value={selectedCompanyId}
+                  value={effectiveCompanyId}
                   label="Active Vendor Simulator"
                   onChange={(e) => {
                     const newId = e.target.value;
@@ -2113,7 +2161,7 @@ function QuotationBuilder() {
             {/* B2B Header */}
             <Box className="avoid-break" sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "3.5px solid #d97706", pb: 1, mb: 1 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.75 }}>
-                <Box component="img" src={resolveMediaUrl(activeCompany.logo)} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 92 : 68, maxWidth: activeCompany.id === "krishnanuja" ? 120 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                <Box component="img" src={resolveMediaUrl(activeCompany.logo)} alt="Logo" sx={{ maxHeight: 100, maxWidth: 260, objectFit: "contain" }} onError={(e: any) => { if (!e.target.src.endsWith('/logo.png')) e.target.src = '/logo.png'; }} />
                 <Box>
                   <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "15px" : "20px", fontWeight: 900, color: "#b45309", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
                   <Typography sx={{ fontSize: "9.5px", fontWeight: 600, color: "#64748b", mt: 0.25, letterSpacing: 0.8, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
@@ -2300,10 +2348,10 @@ function QuotationBuilder() {
                   For {activeCompany.name}
                 </Typography>
                 <Box sx={{ position: "relative", minHeight: 52, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                  {(activeCompany as any).stamp && (
+                  {(activeCompany as any).stamp && (activeCompany as any).signature !== '/signature.png' && (
                     <Box component="img" src={resolveMediaUrl((activeCompany as any).stamp)} alt="Stamp" sx={{ width: 68, height: 68, objectFit: "contain", position: "absolute", right: 36, top: -10, opacity: 0.85, pointerEvents: "none" }} onError={(e: any) => e.target.style.display = 'none'} />
                   )}
-                  <Box component="img" src={resolveMediaUrl((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 140, height: 50, objectFit: "contain", display: "block", ml: "auto", my: 0.2, position: "relative", zIndex: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
+                  <Box component="img" src={resolveMediaUrl((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 155, height: 55, objectFit: "contain", display: "block", ml: "auto", my: 0.2, position: "relative", zIndex: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
                 </Box>
                 <Box sx={{ width: 140, height: 1, bgcolor: "#cbd5e1", mb: 0.2, ml: "auto" }} />
                 <Typography sx={{ fontSize: "7.5px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
@@ -2313,7 +2361,7 @@ function QuotationBuilder() {
             {/* Service Header */}
             <Box className="avoid-break" sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "4px solid #0d47a1", pb: 1.5, mb: 1.5 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <Box component="img" src={resolveMediaUrl(activeCompany.logo)} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 95 : 72, maxWidth: activeCompany.id === "krishnanuja" ? 125 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                <Box component="img" src={resolveMediaUrl(activeCompany.logo)} alt="Logo" sx={{ maxHeight: 100, maxWidth: 260, objectFit: "contain" }} onError={(e: any) => { if (!e.target.src.endsWith('/logo.png')) e.target.src = '/logo.png'; }} />
                 <Box>
                   <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "15px" : "22px", fontWeight: 900, color: "#0d47a1", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
                   <Typography sx={{ fontSize: "9.5px", fontWeight: 600, color: "#64748b", mt: 0.25, letterSpacing: 0.8, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
@@ -2425,10 +2473,10 @@ function QuotationBuilder() {
               <Box sx={{ textAlign: "right" }}>
                 <Typography sx={{ fontSize: "12px", fontWeight: 900, color: "#0d47a1", mb: 0, textDecoration: "underline", textDecorationColor: "#0d47a1", textUnderlineOffset: 3 }}>For {activeCompany.name}</Typography>
                 <Box sx={{ position: "relative", minHeight: 65, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                  {(activeCompany as any).stamp && (
+                  {(activeCompany as any).stamp && (activeCompany as any).signature !== '/signature.png' && (
                     <Box component="img" src={resolveMediaUrl((activeCompany as any).stamp)} alt="Stamp" sx={{ width: 75, height: 75, objectFit: "contain", position: "absolute", right: 50, top: -10, opacity: 0.85, pointerEvents: "none" }} onError={(e: any) => e.target.style.display = 'none'} />
                   )}
-                  <Box component="img" src={resolveMediaUrl((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 160, height: 65, objectFit: "contain", display: "block", ml: "auto", my: 0.2, position: "relative", zIndex: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
+                  <Box component="img" src={resolveMediaUrl((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 170, height: 65, objectFit: "contain", display: "block", ml: "auto", my: 0.2, position: "relative", zIndex: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
                 </Box>
                 <Box sx={{ width: 160, height: 1, bgcolor: "#cbd5e1", mb: 0.25, ml: "auto" }} />
                 <Typography sx={{ fontSize: "8px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
@@ -2440,7 +2488,7 @@ function QuotationBuilder() {
             {/* Header */}
             <Box className="avoid-break" sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "3.5px solid #eab308", pb: 1, mb: 1 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.75 }}>
-                <Box component="img" src={resolveMediaUrl(activeCompany.logo)} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 92 : 68, maxWidth: activeCompany.id === "krishnanuja" ? 120 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                <Box component="img" src={resolveMediaUrl(activeCompany.logo)} alt="Logo" sx={{ maxHeight: 100, maxWidth: 260, objectFit: "contain" }} onError={(e: any) => { if (!e.target.src.endsWith('/logo.png')) e.target.src = '/logo.png'; }} />
                 <Box>
                   <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "15px" : "20px", fontWeight: 900, color: "#1e3a5f", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
                   <Typography sx={{ fontSize: "9.5px", fontWeight: 600, color: "#64748b", mt: 0.2, letterSpacing: 0.8, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
@@ -2551,10 +2599,16 @@ function QuotationBuilder() {
                       <Typography sx={{ fontSize: "8px", color: "#1d4ed8" }}><strong>UPI:</strong> {activeCompany.bank.upiId}</Typography>
                     )}
                   </Box>
-                  {activeCompany.bank?.upiId && (
+                  {(activeCompany.bank?.upiId || (activeCompany as any).qr_code_url) && (
                     <Box sx={{ textAlign: "center", flexShrink: 0 }}>
-                      <a href={`upi://pay?pa=${activeCompany.bank.upiId}&pn=${encodeURIComponent(activeCompany.name)}&am=${calculations.totalAmount}&cu=INR`} style={{ textDecoration: "none" }}>
-                        <Box component="img" src={origin ? `${origin}/payment.png` : "/payment.png"} alt="Payment QR" sx={{ width: 42, height: 42, objectFit: "contain", mixBlendMode: "multiply", display: "block" }} onError={(e: any) => e.target.style.display = 'none'} />
+                      <a href={`upi://pay?pa=${activeCompany.bank?.upiId || ''}&pn=${encodeURIComponent(activeCompany.name)}&am=${calculations.totalAmount}&cu=INR`} style={{ textDecoration: "none" }}>
+                        <Box 
+                          component="img" 
+                          src={(activeCompany as any).qr_code_url || (origin ? `${origin}/payment.png` : "/payment.png")} 
+                          alt="Payment QR" 
+                          sx={{ width: 44, height: 44, objectFit: "contain", mixBlendMode: "multiply", display: "block" }} 
+                          onError={(e: any) => e.target.style.display = 'none'} 
+                        />
                       </a>
                       <Typography sx={{ fontSize: "7px", color: "#64748b", mt: 0.1 }}>Scan UPI</Typography>
                     </Box>
@@ -2639,10 +2693,10 @@ function QuotationBuilder() {
               <Box sx={{ textAlign: "right", position: "relative" }}>
                 <Typography sx={{ fontSize: "10.5px", fontWeight: 900, color: "#1e3a5f", mb: 0, textDecoration: "underline", textDecorationColor: "#eab308", textUnderlineOffset: 3 }}>For {activeCompany.name}</Typography>
                 <Box sx={{ position: "relative", minHeight: 52, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                  {(activeCompany as any).stamp && (
+                  {(activeCompany as any).stamp && (activeCompany as any).signature !== '/signature.png' && (
                     <Box component="img" src={resolveMediaUrl((activeCompany as any).stamp)} alt="Stamp" sx={{ width: 68, height: 68, objectFit: "contain", position: "absolute", right: 36, top: -10, opacity: 0.85, pointerEvents: "none" }} onError={(e: any) => e.target.style.display = 'none'} />
                   )}
-                  <Box component="img" src={resolveMediaUrl((activeCompany as any).signature || '/signature.png')} alt="Authorized Signatory" sx={{ width: 140, height: 50, objectFit: "contain", display: "block", ml: "auto", my: 0.2, position: "relative", zIndex: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
+                  <Box component="img" src={resolveMediaUrl((activeCompany as any).signature || '/signature.png')} alt="Authorized Signatory" sx={{ width: 155, height: 55, objectFit: "contain", display: "block", ml: "auto", my: 0.2, position: "relative", zIndex: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
                 </Box>
                 <Box sx={{ width: 140, height: 1, bgcolor: "#cbd5e1", mb: 0.2, ml: "auto" }} />
                 <Typography sx={{ fontSize: "7.5px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>

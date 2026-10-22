@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSupabase } from '@/lib/supabase';
+import { getAuthenticatedUser, unauthorizedResponse } from '@/lib/authGuard';
+import { generateNodeId, generateQuotePrefix } from '@/lib/multiTenant';
 
 // GET - List all vendors or get single vendor
 export async function GET(request: Request) {
@@ -14,7 +16,7 @@ export async function GET(request: Request) {
         if (id) {
             const { data, error } = await supabase
                 .from('vendors')
-                .select('*')
+                .select('*, vendor_users(id, email, role, full_name)')
                 .eq('id', id)
                 .single();
             if (error) throw error;
@@ -24,7 +26,7 @@ export async function GET(request: Request) {
         if (slug) {
             const { data, error } = await supabase
                 .from('vendors')
-                .select('*')
+                .select('*, vendor_users(id, email, role, full_name)')
                 .eq('slug', slug)
                 .single();
             if (error) throw error;
@@ -33,7 +35,7 @@ export async function GET(request: Request) {
 
         let query = supabase
             .from('vendors')
-            .select('*, quotations(count)')
+            .select('*, quotations(count), vendor_users(id, email, role, full_name)')
             .order('name', { ascending: true });
 
         if (activeOnly) {
@@ -52,11 +54,19 @@ export async function GET(request: Request) {
 
 // POST - Create a new vendor and optionally create their login credentials
 export async function POST(request: Request) {
+    const authUser = await getAuthenticatedUser(request);
+    if (!authUser) return unauthorizedResponse();
+
     try {
         const body = await request.json();
         const {
             name,
             tagline,
+            node_id: inputNodeId,
+            quote_prefix: inputQuotePrefix,
+            qr_code_url,
+            plan_tier = 'pro',
+            is_demo = false,
             gstin,
             phone,
             alternate_phone,
@@ -85,6 +95,15 @@ export async function POST(request: Request) {
 
         const supabase = getServerSupabase();
 
+        // Auto-generate Node ID and Quote Prefix if not supplied
+        const generatedNodeId = (inputNodeId && inputNodeId.trim()) 
+            ? inputNodeId.trim().toUpperCase() 
+            : await generateNodeId(name, head_office || registered_office || '');
+
+        const generatedQuotePrefix = (inputQuotePrefix && inputQuotePrefix.trim())
+            ? inputQuotePrefix.trim().toUpperCase()
+            : generateQuotePrefix(name);
+
         // Generate unique slug
         const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
         const slug = `${baseSlug}-${Date.now().toString().slice(-4)}`;
@@ -93,6 +112,11 @@ export async function POST(request: Request) {
         const vendorPayload: any = {
             name: name.trim(),
             slug,
+            node_id: generatedNodeId,
+            quote_prefix: generatedQuotePrefix,
+            qr_code_url: qr_code_url || null,
+            plan_tier: plan_tier || 'pro',
+            is_demo: Boolean(is_demo),
             tagline: tagline || null,
             gstin: gstin || null,
             phone: phone || null,
@@ -165,11 +189,14 @@ export async function POST(request: Request) {
     }
 }
 
-// PUT - Update vendor details
+// PUT - Update vendor details & credentials
 export async function PUT(request: Request) {
+    const authUser = await getAuthenticatedUser(request);
+    if (!authUser) return unauthorizedResponse();
+
     try {
         const body = await request.json();
-        const { id, ...updates } = body;
+        const { id, login_email, password, role = 'vendor', ...updates } = body;
 
         if (!id) {
             return NextResponse.json({ success: false, message: 'Vendor ID is required' }, { status: 400 });
@@ -177,22 +204,75 @@ export async function PUT(request: Request) {
 
         const supabase = getServerSupabase();
 
-        // If password is being reset/updated
-        if (updates.password && updates.password.trim().length >= 6) {
+        // 1. Handle Login Credentials (User ID / Email & Password)
+        let authMessage = '';
+        const targetEmail = (login_email || (password ? updates.email : '') || '').trim();
+        const targetPassword = password ? password.trim() : '';
+
+        if (targetPassword || targetEmail) {
+            // Find existing vendor_users for this vendor
             const { data: vUsers } = await supabase
                 .from('vendor_users')
-                .select('id')
+                .select('id, email')
                 .eq('vendor_id', id);
 
             if (vUsers && vUsers.length > 0) {
+                // Update existing user(s)
                 for (const vu of vUsers) {
-                    await supabase.auth.admin.updateUserById(vu.id, {
-                        password: updates.password.trim(),
-                    });
+                    const authUpdatePayload: any = {};
+                    if (targetPassword) {
+                        if (targetPassword.length < 6) {
+                            return NextResponse.json({ success: false, message: 'Password must be at least 6 characters' }, { status: 400 });
+                        }
+                        authUpdatePayload.password = targetPassword;
+                    }
+                    if (targetEmail && targetEmail !== vu.email) {
+                        authUpdatePayload.email = targetEmail;
+                        await supabase.from('vendor_users').update({ email: targetEmail }).eq('id', vu.id);
+                    }
+                    if (Object.keys(authUpdatePayload).length > 0) {
+                        const { error: updateAuthErr } = await supabase.auth.admin.updateUserById(vu.id, authUpdatePayload);
+                        if (updateAuthErr) throw updateAuthErr;
+                    }
+                }
+                authMessage = 'Login credentials updated successfully.';
+            } else if (targetEmail && targetPassword) {
+                // Create brand new login account for this vendor
+                if (targetPassword.length < 6) {
+                    return NextResponse.json({ success: false, message: 'Password must be at least 6 characters' }, { status: 400 });
+                }
+                const { data: newAuthData, error: createAuthErr } = await supabase.auth.admin.createUser({
+                    email: targetEmail,
+                    password: targetPassword,
+                    email_confirm: true,
+                    user_metadata: {
+                        vendor_id: id,
+                        vendor_name: updates.name,
+                        role: role,
+                    }
+                });
+
+                if (createAuthErr) throw createAuthErr;
+
+                if (newAuthData?.user) {
+                    await supabase.from('vendor_users').insert([{
+                        id: newAuthData.user.id,
+                        vendor_id: id,
+                        role: role,
+                        full_name: updates.authorized_signatory || updates.name || 'Vendor Admin',
+                        email: targetEmail,
+                    }]);
+                    authMessage = 'Login user account created successfully.';
                 }
             }
-            delete updates.password;
         }
+
+        // Clean out any fields that do not belong to the vendors table
+        delete updates.password;
+        delete updates.login_email;
+        delete updates.vendor_users;
+        delete updates.quotations;
+        delete updates.role;
 
         const updatePayload: any = {
             ...updates,
@@ -203,12 +283,16 @@ export async function PUT(request: Request) {
             .from('vendors')
             .update(updatePayload)
             .eq('id', id)
-            .select()
+            .select('*, vendor_users(id, email, role, full_name)')
             .single();
 
         if (error) throw error;
 
-        return NextResponse.json({ success: true, message: 'Vendor updated successfully', data });
+        return NextResponse.json({
+            success: true,
+            message: authMessage ? `Vendor and ${authMessage}` : 'Vendor updated successfully',
+            data,
+        });
     } catch (error: any) {
         console.error('Update vendor error:', error);
         return NextResponse.json({ success: false, message: error.message || 'Failed to update vendor' }, { status: 500 });
@@ -217,6 +301,9 @@ export async function PUT(request: Request) {
 
 // DELETE - Deactivate/Delete vendor
 export async function DELETE(request: Request) {
+    const authUser = await getAuthenticatedUser(request);
+    if (!authUser) return unauthorizedResponse();
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');

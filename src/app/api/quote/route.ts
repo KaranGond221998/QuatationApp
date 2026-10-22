@@ -61,16 +61,18 @@ export async function POST(request: Request) {
       console.warn('Falling back to origin logo URL', logoError);
     }
 
-    // Load Static Payment QR Code
-    let qrCodeUrl = '';
-    const upiLink = `upi://pay?pa=${quoteData.companyDetails?.bank?.upiId || 'vyapar.173575988777@hdfcbank'}&pn=${encodeURIComponent(quoteData.companyDetails?.name || 'Arpit Solar Shop')}&am=${grandTotal}&cu=INR`;
+    const upiLink = `upi://pay?pa=${quoteData.companyDetails?.bank?.upiId || 'karan.solar@hdfcbank'}&pn=${encodeURIComponent(quoteData.companyDetails?.name || 'Karan Solar Shop')}&am=${grandTotal}&cu=INR`;
 
-    try {
-      const qrPath = path.join(process.cwd(), 'public', 'payment.png');
-      const qrBuffer = await fs.readFile(qrPath);
-      qrCodeUrl = `data:image/png;base64,${qrBuffer.toString('base64')}`;
-    } catch (qrError) {
-      console.warn('payment.png not found', qrError);
+    // Load Payment QR Code (custom vendor QR or fallback to static payment.png)
+    let qrCodeUrl = quoteData.companyDetails?.qr_code_url || '';
+    if (!qrCodeUrl) {
+      try {
+        const qrPath = path.join(process.cwd(), 'public', 'payment.png');
+        const qrBuffer = await fs.readFile(qrPath);
+        qrCodeUrl = `data:image/png;base64,${qrBuffer.toString('base64')}`;
+      } catch (qrError) {
+        console.warn('payment.png not found', qrError);
+      }
     }
 
     let signatureUrl = '';
@@ -142,11 +144,21 @@ export async function POST(request: Request) {
       try { await browser.close(); } catch { }
     }
 
-    const fileName = `quotation-${quoteData.customerInfo.name.replace(/\s+/g, '-')}-${Date.now()}.pdf`;
-    const bucketName = process.env.SUPABASE_BUCKET!;
-
-    // Create Supabase client now that envs are validated
+    const vendorId = quoteData.vendor_id || quoteData.companyDetails?.id || 'a0000000-0000-0000-0000-000000000001';
     const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_KEY!);
+    
+    // Resolve tenant Node ID for sandboxed storage
+    let nodeId = 'NODE-VNS-001';
+    try {
+      const { data: vRecord } = await supabase.from('vendors').select('node_id').eq('id', vendorId).single();
+      if (vRecord?.node_id) nodeId = vRecord.node_id;
+    } catch {
+      // Default node
+    }
+
+    const cleanCust = (quoteData.customerInfo.name || 'Customer').replace(/[^a-zA-Z0-9_-]/g, '-');
+    const fileName = `tenants/${nodeId}/quotations/quotation-${cleanCust}-${Date.now()}.pdf`;
+    const bucketName = process.env.SUPABASE_BUCKET!;
 
     const { error: uploadError } = await supabase.storage.from(bucketName).upload(fileName, pdfBuffer, { contentType: 'application/pdf', upsert: false });
     if (uploadError) throw uploadError;

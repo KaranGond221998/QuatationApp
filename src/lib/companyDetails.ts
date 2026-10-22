@@ -1,34 +1,32 @@
-// Arpit Solar Shop - Company Details
+// Karan Solar Shop & Multi-Vendor Details
 export const companies = [
     {
-        id: "arpit",
-        name: "Arpit Solar Shop",
-        tagline: "ILLUMINATING YOUR FUTURE WITH CLEAN ENERGY",
-        gstin: "09APKPM6299L1ZW",
-        // Addresses
-        headOffice: "Sh16/114/25-K-2, Sharvodaya Nagar, Kadipur Shivpur, Varanasi 221003",
-        registeredOffice: "1st Floor, Maurya Bhawan, Malgodam Road, Ballia 277001",
-        // Contact
+        id: "a0000000-0000-0000-0000-000000000001",
+        slug: "karan-solar",
+        name: "Karan Solar Shop",
+        tagline: "CLEAN ENERGY | BRIGHTER TOMORROW",
+        gstin: "",
+        headOffice: "Varanasi, Uttar Pradesh, India",
+        registeredOffice: "Varanasi, Uttar Pradesh, India",
         phone: "+91 9005770466",
         alternatePhone: "9044555572",
-        email: "arpitsolarshop@gmail.com",
-        // Bank Details
+        email: "karangond221998@gmail.com",
         bank: {
             name: "HDFC Bank",
             branch: "Shivpur, Varanasi",
-            accountName: "ARPIT SOLAR SHOP",
+            accountName: "KARAN SOLAR SHOP",
             accountNumber: "50200123854806",
             ifsc: "HDFC0004807",
-            upiId: "vyapar.173575988777@hdfcbank",
+            upiId: "karan.solar@hdfcbank",
         },
-        // Logo
         logo: "/logo.png",
         signature: "/signature.png",
-        // Authorized Signatory
+        stamp: null,
         authorizedSignatory: "Karan Gond",
     },
     {
         id: "krishnanuja",
+        slug: "krishnanuja",
         name: "KRISHNANUJA RENEWABLES PRIVATE LIMITED",
         tagline: "SOLAR EPC SERVICES",
         gstin: "09AAMCK6259J1ZU",
@@ -52,12 +50,26 @@ export const companies = [
         // Logo
         logo: "/krishnanuja.png",
         signature: "/Rahul_Sign.png",
+        stamp: "/stamp.png",
         // Authorized Signatory
         authorizedSignatory: "Rahul Mishra",
     }
 ];
 
 export const companyDetails = companies[0];
+
+/**
+ * Resolves a company ID or legacy slug ('karan') to the matching company object
+ */
+export function findCompany(id?: string) {
+    if (!id) return companies[0];
+    return companies.find(c =>
+        c.id === id ||
+        c.slug === id ||
+        (id === 'karan' && (c.slug === 'karan-solar' || c.id === 'a0000000-0000-0000-0000-000000000001')) ||
+        (id === 'arpit' && (c.slug === 'karan-solar' || c.id === 'a0000000-0000-0000-0000-000000000001'))
+    ) || companies[0];
+}
 
 // Default Subsidy Amounts (can be overridden per quotation)
 // For 3 KW and above
@@ -88,7 +100,7 @@ export const gstConfig = {
 // Calculation: Effective GST = (70% × 5%) + (30% × 18%) = 3.5% + 5.4% = 8.9%
 
 // Quote Number Prefix
-export const quoteNumberPrefix = "ASS"; // Arpit Solar Shop
+export const quoteNumberPrefix = "KSS"; // Karan Solar Shop
 
 // Generate Quote Number
 export const generateQuoteNumber = (customerInitials: string): string => {

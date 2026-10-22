@@ -152,11 +152,16 @@ INSERT INTO system_types (name, description)
 SELECT 'VFD/Drive', 'Solar Pump Drive'
 WHERE NOT EXISTS (SELECT 1 FROM system_types WHERE name = 'VFD/Drive');
 
--- 8. Vendors Table
+-- 8. Vendors (Tenants) Table
 CREATE TABLE IF NOT EXISTS vendors (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   slug TEXT UNIQUE,
+  node_id TEXT UNIQUE, -- e.g. NODE-VNS-001
+  quote_prefix TEXT DEFAULT 'QT', -- e.g. KSS, SUN, APX
+  qr_code_url TEXT, -- Company payment barcode / UPI QR code image
+  plan_tier TEXT DEFAULT 'pro', -- 'starter', 'pro', 'enterprise'
+  is_demo BOOLEAN DEFAULT false, -- Flags demo/showcase tenant
   tagline TEXT,
   gstin TEXT,
   phone TEXT,
@@ -172,14 +177,16 @@ CREATE TABLE IF NOT EXISTS vendors (
   upi_id TEXT,
   logo_url TEXT DEFAULT '/logo.png',
   signature_url TEXT DEFAULT '/signature.png',
+  stamp_url TEXT DEFAULT '/stamp.png',
   authorized_signatory TEXT,
   default_margin DECIMAL(12,2) DEFAULT 0,
+  components_settings JSONB DEFAULT '{}',
   status TEXT DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 9. Vendor Users Table (links Supabase auth.users to vendors)
+-- 9. Vendor Users Table (links Supabase auth.users to tenants)
 CREATE TABLE IF NOT EXISTS vendor_users (
   id UUID PRIMARY KEY, -- references auth.users(id)
   vendor_id UUID REFERENCES vendors(id) ON DELETE CASCADE,
@@ -189,23 +196,67 @@ CREATE TABLE IF NOT EXISTS vendor_users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 10. Tenant Sequences Table (atomic sequential quotation numbers per tenant)
+CREATE TABLE IF NOT EXISTS tenant_sequences (
+  tenant_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+  year INTEGER NOT NULL,
+  current_seq INTEGER DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (tenant_id, year)
+);
+
+-- 11. Atomic Function to Generate Next Quotation Number
+CREATE OR REPLACE FUNCTION get_next_quote_number(p_tenant_id UUID)
+RETURNS TEXT AS $$
+DECLARE
+  v_year INTEGER := EXTRACT(YEAR FROM CURRENT_DATE);
+  v_prefix TEXT;
+  v_seq INTEGER;
+BEGIN
+  -- Fetch tenant prefix
+  SELECT COALESCE(quote_prefix, 'QT') INTO v_prefix FROM vendors WHERE id = p_tenant_id;
+  IF v_prefix IS NULL THEN
+    v_prefix := 'QT';
+  END IF;
+
+  -- Upsert atomic sequence
+  INSERT INTO tenant_sequences (tenant_id, year, current_seq, updated_at)
+  VALUES (p_tenant_id, v_year, 1, NOW())
+  ON CONFLICT (tenant_id, year)
+  DO UPDATE SET current_seq = tenant_sequences.current_seq + 1, updated_at = NOW()
+  RETURNING current_seq INTO v_seq;
+
+  RETURN v_prefix || '-' || v_year || '-' || LPAD(v_seq::TEXT, 4, '0');
+END;
+$$ LANGUAGE plpgsql;
+
 -- Alter quotations for multi-vendor support
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES vendors(id) ON DELETE SET NULL;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vendor_id UUID REFERENCES vendors(id) ON DELETE SET NULL;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS node_id TEXT;
+ALTER TABLE quotations ADD COLUMN IF NOT EXISTS pdf_storage_path TEXT;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS created_by UUID;
 ALTER TABLE quotations ADD COLUMN IF NOT EXISTS vendor_snapshot JSONB;
 
--- Seed initial vendor: Karan Solar Shop
+-- Alter internal_quotes for multi-vendor support
+ALTER TABLE internal_quotes ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES vendors(id) ON DELETE SET NULL;
+ALTER TABLE internal_quotes ADD COLUMN IF NOT EXISTS node_id TEXT;
+
+-- Seed initial demo flagship vendor: Karan Solar Shop
 INSERT INTO vendors (
-  id, name, slug, tagline, head_office, registered_office,
+  id, name, slug, node_id, quote_prefix, is_demo, tagline, head_office, registered_office,
   phone, alternate_phone, email, bank_name, bank_branch,
   account_name, account_number, ifsc, upi_id,
-  logo_url, signature_url, authorized_signatory, status
+  logo_url, signature_url, stamp_url, authorized_signatory, status
 )
 VALUES (
   'a0000000-0000-0000-0000-000000000001',
   'Karan Solar Shop',
   'karan-solar',
-  'ILLUMINATING YOUR FUTURE WITH CLEAN ENERGY',
+  'NODE-VNS-001',
+  'KSS',
+  true,
+  'CLEAN ENERGY | BRIGHTER TOMORROW',
   'Varanasi, Uttar Pradesh, India',
   'Varanasi, Uttar Pradesh, India',
   '+91 9005770466',
@@ -219,8 +270,14 @@ VALUES (
   'karan.solar@hdfcbank',
   '/logo.png',
   '/signature.png',
+  '/stamp.png',
   'Karan Gond',
   'active'
 )
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  node_id = 'NODE-VNS-001',
+  quote_prefix = 'KSS',
+  is_demo = true,
+  tagline = 'CLEAN ENERGY | BRIGHTER TOMORROW';
+
 

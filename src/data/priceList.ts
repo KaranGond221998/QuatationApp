@@ -4,9 +4,9 @@ export const GST_RATE = 0.089;
 export const EXTRA_HEIGHT_RATE = 1500; // ₹ per kWp
 
 export const companyDetails = {
-    name: "Arpit Solar",
+    name: "Karan Solar Shop",
     logo: "/logo.png",
-    address: "Sh16/114-25-K-2, Sharvodayanagar, Kadipur, Shivpur, Varanasi 221003 (UP)",
+    address: "Varanasi, Uttar Pradesh, India",
 };
 
 // Tata Price List - On-Grid SPS
