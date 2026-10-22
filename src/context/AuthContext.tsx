@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Vendor } from '@/types';
 
@@ -18,90 +18,156 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const DEFAULT_FALLBACK_VENDOR: Vendor = {
+    id: "a0000000-0000-0000-0000-000000000001",
+    slug: "karan-solar",
+    name: "Karan Solar Shop",
+    tagline: "CLEAN ENERGY | BRIGHTER TOMORROW",
+    gstin: null,
+    head_office: "Varanasi, Uttar Pradesh, India",
+    registered_office: "Varanasi, Uttar Pradesh, India",
+    phone: "+91 9005770466",
+    alternate_phone: "9044555572",
+    email: "karangond221998@gmail.com",
+    bank_name: "HDFC Bank",
+    bank_branch: "Shivpur, Varanasi",
+    account_name: "KARAN SOLAR SHOP",
+    account_number: "50200123854806",
+    ifsc: "HDFC0004807",
+    upi_id: "karan.solar@hdfcbank",
+    logo_url: "/logo.png",
+    signature_url: "/signature.png",
+    stamp_url: null,
+    authorized_signatory: "Karan Gond",
+    default_margin: 0,
+    status: "active",
+    node_id: "NODE-VNS-001",
+    quote_prefix: "KSS",
+    plan_tier: "pro",
+    is_demo: true,
+    components_settings: {},
+    created_at: "2026-10-22T11:05:49.814575+00:00",
+    updated_at: "2026-10-22T11:05:49.814575+00:00",
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<any | null>(null);
-    const [vendor, setVendor] = useState<Vendor | null>(null);
+    const [vendor, setVendor] = useState<Vendor | null>(DEFAULT_FALLBACK_VENDOR);
     const [role, setRole] = useState<'super_admin' | 'vendor' | 'salesperson' | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
-    const [allVendors, setAllVendors] = useState<Vendor[]>([]);
+    const [allVendors, setAllVendors] = useState<Vendor[]>([DEFAULT_FALLBACK_VENDOR]);
 
-    // Fetch vendor details for authenticated user
+    const vendorRef = useRef<Vendor | null>(DEFAULT_FALLBACK_VENDOR);
+    vendorRef.current = vendor;
+
+    const isFetchingRef = useRef<boolean>(false);
+
+    // Fetch vendor details for authenticated user or offline defaults
     const loadUserData = useCallback(async (authUser: any) => {
+        if (isFetchingRef.current) return;
+        isFetchingRef.current = true;
+
         try {
             if (!authUser) {
                 setUser(null);
                 setRole(null);
-                // Default to first active vendor or fallback
-                const res = await fetch('/api/vendors?active=true');
-                const json = await res.json();
-                if (json.success && json.data?.length > 0) {
-                    setAllVendors(json.data);
-                    setVendor(json.data[0]);
+                try {
+                    const res = await fetch('/api/vendors?active=true');
+                    if (res.ok) {
+                        const json = await res.json();
+                        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+                            setAllVendors(json.data);
+                            if (!vendorRef.current || vendorRef.current.id === DEFAULT_FALLBACK_VENDOR.id) {
+                                setVendor(json.data[0]);
+                            }
+                        }
+                    }
+                } catch {
+                    // Offline fallback already in place
                 }
                 return;
             }
 
             setUser(authUser);
 
-            // Fetch vendor_users relation
-            const { data: vUserData, error: vUserErr } = await supabase
-                .from('vendor_users')
-                .select('*, vendors(*)')
-                .eq('id', authUser.id)
-                .single();
+            // 1. Fetch vendor_users relation
+            let userRole: 'super_admin' | 'vendor' | 'salesperson' = 'vendor';
+            let assignedVendor: Vendor | null = null;
 
-            if (vUserData) {
-                setRole(vUserData.role as any);
-                if (vUserData.vendors) {
-                    setVendor(vUserData.vendors);
+            try {
+                const { data: vUserData, error: vUserErr } = await supabase
+                    .from('vendor_users')
+                    .select('*, vendors(*)')
+                    .eq('id', authUser.id)
+                    .maybeSingle();
+
+                if (!vUserErr && vUserData) {
+                    userRole = vUserData.role as any;
+                    if (vUserData.vendors) {
+                        assignedVendor = vUserData.vendors;
+                    }
+                } else {
+                    const metaVendorId = authUser.user_metadata?.vendor_id;
+                    userRole = (authUser.user_metadata?.role as any) || 'vendor';
+                    if (metaVendorId) {
+                        const { data: vData } = await supabase
+                            .from('vendors')
+                            .select('*')
+                            .eq('id', metaVendorId)
+                            .maybeSingle();
+                        if (vData) assignedVendor = vData;
+                    }
                 }
-            } else {
-                // If user metadata has vendor_id
-                const vendorId = authUser.user_metadata?.vendor_id;
-                const userRole = authUser.user_metadata?.role || 'vendor';
-                setRole(userRole as any);
-                if (vendorId) {
-                    const { data: vData } = await supabase
-                        .from('vendors')
-                        .select('*')
-                        .eq('id', vendorId)
-                        .single();
-                    if (vData) setVendor(vData);
-                }
+            } catch {
+                // Ignore Supabase connection timeouts or offline errors
             }
 
-            // Also load all vendors for admin
-            const res = await fetch('/api/vendors');
-            const json = await res.json();
-            if (json.success && json.data) {
-                setAllVendors(json.data);
-                // If no specific vendor was assigned, pick the first
-                if (!vendor && json.data.length > 0) {
-                    setVendor(json.data[0]);
+            setRole(userRole);
+            if (assignedVendor) {
+                setVendor(assignedVendor);
+            }
+
+            // 2. Load all vendors list
+            try {
+                const res = await fetch('/api/vendors');
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+                        setAllVendors(json.data);
+                        if (!assignedVendor && (!vendorRef.current || vendorRef.current.id === DEFAULT_FALLBACK_VENDOR.id)) {
+                            setVendor(json.data[0]);
+                        }
+                    }
                 }
+            } catch {
+                // Ignore offline vendor load failure
             }
         } catch (err) {
-            console.error('Error loading user vendor profile:', err);
+            console.warn('Notice: running with default vendor settings');
         } finally {
+            isFetchingRef.current = false;
             setLoading(false);
         }
-    }, [vendor]);
+    }, []);
+
+    const loadUserDataRef = useRef(loadUserData);
+    loadUserDataRef.current = loadUserData;
 
     useEffect(() => {
-        // Initial session check
+        // Run once on mount
         supabase.auth.getSession().then(({ data: { session } }) => {
-            loadUserData(session?.user || null);
+            loadUserDataRef.current(session?.user || null);
         });
 
-        // Listen for auth changes
+        // Listen for auth changes (single subscription)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            loadUserData(session?.user || null);
+            loadUserDataRef.current(session?.user || null);
         });
 
         return () => {
             subscription.unsubscribe();
         };
-    }, [loadUserData]);
+    }, []);
 
     const signIn = async (email: string, password: string) => {
         try {
@@ -127,7 +193,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.auth.signOut();
         setUser(null);
         setRole(null);
-        // Reset to default vendor
         if (allVendors.length > 0) {
             setVendor(allVendors[0]);
         }
