@@ -230,8 +230,20 @@ function QuotationBuilder() {
 
   // System Configuration
   const [selectedSystemType, setSelectedSystemType] = useState(
-    tabParam === "ApolloB2B" || tabParam === "b2b" || tabParam === "structure" ? "ApolloB2B" : "On-grid"
+    tabParam === "ApolloB2B" || tabParam === "b2b" || tabParam === "structure"
+      ? "ApolloB2B"
+      : tabParam === "Service" || tabParam === "service"
+      ? "Service"
+      : "On-grid"
   );
+
+  useEffect(() => {
+    if (tabParam === "Service" || tabParam === "service") {
+      setSelectedSystemType("Service");
+    } else if (tabParam === "ApolloB2B" || tabParam === "b2b" || tabParam === "structure") {
+      setSelectedSystemType("ApolloB2B");
+    }
+  }, [tabParam]);
   const [capacityKw, setCapacityKw] = useState<number>(3);
   const [phase, setPhase] = useState<number>(1);
 
@@ -413,7 +425,10 @@ function QuotationBuilder() {
   const serviceSubtotal = useMemo(() => serviceItems.reduce((s, i) => s + i.amount, 0), [serviceItems]);
   const serviceGstAmount = useMemo(() => +(serviceSubtotal * serviceGst / 100).toFixed(2), [serviceSubtotal, serviceGst]);
   const serviceGrandTotal = useMemo(() => +(serviceSubtotal + serviceGstAmount).toFixed(2), [serviceSubtotal, serviceGstAmount]);
-  const serviceRefNumber = useMemo(() => generateServiceRefNumber(activeCompany.id === "krishnanuja" ? "KRPL" : "ASS"), [activeCompany.id]);
+  const serviceRefNumber = useMemo(() => {
+    const prefix = (activeCompany as any).quote_prefix || (activeCompany as any).quotePrefix || "KSS";
+    return generateServiceRefNumber(prefix);
+  }, [activeCompany]);
 
   const updateServiceItem = (idx: number, field: keyof ServiceItem, val: string | number) => {
     const updated = [...serviceItems];
@@ -1238,26 +1253,6 @@ function QuotationBuilder() {
               Quotation Builder
             </Typography>
             <Box sx={{ display: "flex", gap: 0.8, alignItems: "center", flexWrap: "wrap" }}>
-              {/* Always visible core module links from original repo */}
-              <Link href="/service" style={{ textDecoration: 'none' }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    color: "white",
-                    borderColor: "rgba(255,255,255,0.4)",
-                    "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)" },
-                    textTransform: "none",
-                    fontWeight: "bold",
-                    px: 1.2,
-                    py: 0.2,
-                    fontSize: 11
-                  }}
-                >
-                  Service
-                </Button>
-              </Link>
-
               <Link href="/admin" style={{ textDecoration: 'none' }}>
                 <Button
                   variant="outlined"

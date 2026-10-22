@@ -123,7 +123,7 @@ export default function AdminDashboard() {
       description: "Annual maintenance, solar cleaning & inverter service quotations",
       icon: <Build sx={{ fontSize: 40 }} />,
       color: "#0284c7",
-      href: "/service",
+      href: "/?tab=Service",
     },
   ];
 
@@ -177,7 +177,7 @@ export default function AdminDashboard() {
             </Typography>
           </Box>
           <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
-            <Link href="/service" style={{ textDecoration: "none" }}>
+            <Link href="/?tab=Service" style={{ textDecoration: "none" }}>
               <Button variant="outlined" startIcon={<Build />} sx={{ borderColor: "#0284c7", color: "#0284c7", fontWeight: 700 }}>
                 Service
               </Button>

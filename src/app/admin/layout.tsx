@@ -227,7 +227,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                     {/* Right side controls */}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Link href="/service" style={{ textDecoration: 'none' }}>
+                        <Link href="/?tab=Service" style={{ textDecoration: 'none' }}>
                             <Button
                                 variant="outlined"
                                 size="small"

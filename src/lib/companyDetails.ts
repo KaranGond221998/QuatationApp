@@ -23,36 +23,6 @@ export const companies = [
         signature: "/signature.png",
         stamp: null,
         authorizedSignatory: "Karan Gond",
-    },
-    {
-        id: "krishnanuja",
-        slug: "krishnanuja",
-        name: "KRISHNANUJA RENEWABLES PRIVATE LIMITED",
-        tagline: "SOLAR EPC SERVICES",
-        gstin: "09AAMCK6259J1ZU",
-        cin: "U35105UP2026PTC244522",
-        // Addresses
-        headOffice: "SH16/114-15-K2, SHARVODAYA NAGAR, KADIPUR, SHIVPUR, VARANASI 221003",
-        warehouse: "SH15/243, BHARLAI, SHIVPUR, VARANASI 221003",
-        // Contact
-        phone: "9044555572",
-        alternatePhone: "",
-        email: "",
-        // Bank Details
-        bank: {
-            name: "State Bank of India",
-            branch: "Phulwariya, Varanasi",
-            accountName: "Krishnanuja Renewables Private Limited",
-            accountNumber: "45174224440",
-            ifsc: "SBIN0064799",
-            upiId: "", // No UPI available yet
-        },
-        // Logo
-        logo: "/krishnanuja.png",
-        signature: "/Rahul_Sign.png",
-        stamp: "/stamp.png",
-        // Authorized Signatory
-        authorizedSignatory: "Rahul Mishra",
     }
 ];
 
@@ -247,7 +217,7 @@ export const defaultServiceTerms: string[] = [
 ];
 
 // Generate Service Proposal Reference Number
-export const generateServiceRefNumber = (prefix: string = 'KRPL'): string => {
+export const generateServiceRefNumber = (prefix: string = 'KSS'): string => {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
