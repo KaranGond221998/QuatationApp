@@ -1322,7 +1322,7 @@ function QuotationBuilder() {
                         Shop Profile
                       </Button>
                     </Link>
-                    <Link href="/vendor/quotations" style={{ textDecoration: 'none' }}>
+                    <Link href="/admin/quotations" style={{ textDecoration: 'none' }}>
                       <Button
                         variant="outlined"
                         size="small"

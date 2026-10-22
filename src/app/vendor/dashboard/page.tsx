@@ -235,7 +235,7 @@ export default function VendorDashboardPage() {
                             </Typography>
                             <Button
                                 endIcon={<ArrowForwardIcon />}
-                                onClick={() => router.push('/vendor/quotations')}
+                                onClick={() => router.push('/admin/quotations')}
                                 sx={{ color: '#ff9800', fontWeight: 700 }}
                             >
                                 View All Quotes

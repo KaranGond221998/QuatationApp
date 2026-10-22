@@ -15,13 +15,11 @@ import {
   Inventory,
   SettingsInputComponent,
   Receipt,
-  Home,
   Add,
-  Construction,
   Inventory2,
   Storefront,
-  PhoneInTalk,
   ManageAccounts,
+  Home,
   Build,
 } from "@mui/icons-material";
 import Link from "next/link";
@@ -70,6 +68,20 @@ export default function AdminDashboard() {
 
   const menuItems = [
     {
+      title: "Quotation Studio & Calculators",
+      description: "Create Rooftop (On/Off/Hybrid), Apollo Structure B2B & Solar Service quotations",
+      icon: <Add sx={{ fontSize: 40 }} />,
+      color: "#16a34a",
+      href: "/",
+    },
+    {
+      title: "Saved Quotations",
+      description: "View, edit, search, export & print customer quotations across all types",
+      icon: <Receipt sx={{ fontSize: 40 }} />,
+      color: "#9333ea",
+      href: "/admin/quotations",
+    },
+    {
       title: "Bill of Materials (BOM)",
       description: "Customize components, makes & quantities for On-grid, Off-grid, Hybrid & VFD systems",
       icon: <SettingsInputComponent sx={{ fontSize: 40 }} />,
@@ -91,39 +103,11 @@ export default function AdminDashboard() {
       href: "/admin/products",
     },
     {
-      title: "Saved Quotations",
-      description: "View, edit, search, export & print customer quotations",
-      icon: <Receipt sx={{ fontSize: 40 }} />,
-      color: "#9333ea",
-      href: "/admin/quotations",
-    },
-    {
       title: "Shop Settings & Brand Assets",
       description: "Manage custom logo, stamp seal, signature, UPI payment barcode & bank details",
       icon: <ManageAccounts sx={{ fontSize: 40 }} />,
       color: "#ea580c",
       href: "/vendor/profile",
-    },
-    {
-      title: "Rooftop Quotation Builder",
-      description: "Generate instant On-grid, Off-grid & Hybrid Solar Quotations",
-      icon: <Add sx={{ fontSize: 40 }} />,
-      color: "#16a34a",
-      href: "/",
-    },
-    {
-      title: "Structure / B2B Quote",
-      description: "Apollo & Tata Solar Structures, Wires & Kits calculator",
-      icon: <Construction sx={{ fontSize: 40 }} />,
-      color: "#d97706",
-      href: "/?tab=ApolloB2B",
-    },
-    {
-      title: "Service Quotation",
-      description: "Annual maintenance, solar cleaning & inverter service quotations",
-      icon: <Build sx={{ fontSize: 40 }} />,
-      color: "#0284c7",
-      href: "/?tab=Service",
     },
   ];
 

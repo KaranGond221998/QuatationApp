@@ -5,7 +5,7 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { sendWhatsAppMessage } from '../../../lib/whatsapp';
 import { generateQuoteHtml } from '../../../lib/quoteTemplate';
-import { defaultComponents } from '../../../data/components';
+import { defaultComponents } from '@/lib/companyDetails';
 import { GST_RATE } from '../../../data/priceList';
 
 export const runtime = 'nodejs';
@@ -84,9 +84,12 @@ export async function POST(request: Request) {
       console.warn('Signature image not found', sigError);
     }
 
+    const sysType = (quoteData.selectedProduct?.systemType || quoteData.systemType || 'On-grid') as keyof typeof defaultComponents;
+    const fallbackComps = defaultComponents[sysType] || defaultComponents['On-grid'];
+
     const htmlContent = generateQuoteHtml({
       ...quoteData,
-      components: quoteData.components || defaultComponents,
+      components: quoteData.components || fallbackComps,
       logoUrl,
       signatureUrl,
       panelWarranty: quoteData.selectedProduct?.panelWarranty || "25 Years",

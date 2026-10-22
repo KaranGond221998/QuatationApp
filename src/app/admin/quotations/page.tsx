@@ -27,6 +27,7 @@ import {
 import { ArrowBack, Visibility, Delete, Search, WhatsApp, Edit, Construction, Add, Storefront } from "@mui/icons-material";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
 type Quotation = {
     id: string;
@@ -45,6 +46,7 @@ type Quotation = {
 };
 
 export default function QuotationsAdminPage() {
+    const { user, role, vendor: authVendor } = useAuth();
     const [quotations, setQuotations] = useState<Quotation[]>([]);
     const [vendors, setVendors] = useState<any[]>([]);
     const [selectedVendorId, setSelectedVendorId] = useState<string>("all");
@@ -54,6 +56,12 @@ export default function QuotationsAdminPage() {
     const [endDate, setEndDate] = useState("");
     const [typeFilter, setTypeFilter] = useState<"all" | "b2b" | "rooftop" | "service">("all");
     const router = useRouter();
+
+    useEffect(() => {
+        if (authVendor?.id && role !== 'super_admin') {
+            setSelectedVendorId(authVendor.id);
+        }
+    }, [authVendor, role]);
 
     const fetchQuotations = async () => {
         try {
@@ -191,32 +199,44 @@ export default function QuotationsAdminPage() {
                         </Link>
                         <Box>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                <Typography variant="h4" fontWeight="bold">
-                                    Global Quotations
+                                <Typography variant="h4" fontWeight="bold" sx={{ color: "#0f172a" }}>
+                                    {role === "super_admin" ? "Global Quotations" : "Saved Quotations"}
                                 </Typography>
-                                <Chip label="Layer 1 Control" size="small" sx={{ bgcolor: "#0f172a", color: "#fff", fontWeight: 700 }} />
+                                {role === "super_admin" && (
+                                    <Chip label="Layer 1 Control" size="small" sx={{ bgcolor: "#0f172a", color: "#fff", fontWeight: 700 }} />
+                                )}
                             </Box>
                             <Typography variant="body2" color="text.secondary">
-                                Monitor and manage quotation output across all registered vendors
+                                {role === "super_admin"
+                                    ? "Monitor and manage quotation output across all registered vendors"
+                                    : "View, search, edit, download and share customer quotations"}
                             </Typography>
                         </Box>
                     </Box>
                     <Box sx={{ display: "flex", gap: 1.5, alignItems: "center", flexWrap: "wrap" }}>
-                        <FormControl size="small" sx={{ minWidth: 200 }}>
-                            <InputLabel>Filter by Vendor</InputLabel>
-                            <Select
-                                value={selectedVendorId}
-                                label="Filter by Vendor"
-                                onChange={(e) => setSelectedVendorId(e.target.value)}
-                            >
-                                <MenuItem value="all">🏢 All Vendors ({quotations.length})</MenuItem>
-                                {vendors.map((v) => (
-                                    <MenuItem key={v.id} value={v.id}>
-                                        {v.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                        {role === "super_admin" ? (
+                            <FormControl size="small" sx={{ minWidth: 200 }}>
+                                <InputLabel>Filter by Vendor</InputLabel>
+                                <Select
+                                    value={selectedVendorId}
+                                    label="Filter by Vendor"
+                                    onChange={(e) => setSelectedVendorId(e.target.value)}
+                                >
+                                    <MenuItem value="all">🏢 All Vendors ({quotations.length})</MenuItem>
+                                    {vendors.map((v) => (
+                                        <MenuItem key={v.id} value={v.id}>
+                                            {v.name}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        ) : (
+                            <Chip
+                                icon={<Storefront sx={{ fontSize: "16px !important", color: "#1d4ed8 !important" }} />}
+                                label={authVendor?.name || "My Quotations"}
+                                sx={{ bgcolor: "#eff6ff", color: "#1d4ed8", fontWeight: 700, px: 1, height: 36 }}
+                            />
+                        )}
                         <Link href="/?tab=ApolloB2B" style={{ textDecoration: "none" }}>
                             <Button
                                 variant="contained"
