@@ -25,7 +25,7 @@ export const companies = [
         logo: "/logo.png",
         signature: "/signature.png",
         // Authorized Signatory
-        authorizedSignatory: "Ratnesh Mishra",
+        authorizedSignatory: "Karan Gond",
     },
     {
         id: "krishnanuja",
