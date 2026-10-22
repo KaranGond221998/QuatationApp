@@ -118,7 +118,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const navItems = [
         { label: 'Overview', href: '/admin', icon: <DashboardIcon sx={{ fontSize: 18 }} /> },
-        { label: 'Vendors (Layer 1)', href: '/admin/vendors', icon: <StorefrontIcon sx={{ fontSize: 18 }} /> },
+        { label: 'Vendors & Remote Control', href: '/admin/vendors', icon: <StorefrontIcon sx={{ fontSize: 18 }} /> },
         { label: 'Global Quotations', href: '/admin/quotations', icon: <ReceiptIcon sx={{ fontSize: 18 }} /> },
         { label: 'Structure Catalog', href: '/admin/structure-catalog', icon: <Inventory2Icon sx={{ fontSize: 18 }} /> },
         { label: 'Products', href: '/admin/products', icon: <InventoryIcon sx={{ fontSize: 18 }} /> },

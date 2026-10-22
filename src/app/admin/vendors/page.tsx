@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Container,
     Box,
@@ -30,7 +30,11 @@ import {
     Stack,
     Tabs,
     Tab,
-    Divider
+    Divider,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
 } from '@mui/material';
 import AddBusinessIcon from '@mui/icons-material/AddBusiness';
 import EditIcon from '@mui/icons-material/Edit';
@@ -40,35 +44,88 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import KeyIcon from '@mui/icons-material/Key';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import PhoneInTalkIcon from '@mui/icons-material/PhoneInTalk';
+import TuneIcon from '@mui/icons-material/Tune';
+import SaveIcon from '@mui/icons-material/Save';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import VerifiedIcon from '@mui/icons-material/Verified';
+import LaunchIcon from '@mui/icons-material/Launch';
+import LockResetIcon from '@mui/icons-material/LockReset';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useAuth } from '@/context/AuthContext';
 import { Vendor } from '@/types';
 
 export default function AdminVendorsPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const initialVendorParam = searchParams.get('vendor_id');
+
     const { user, role, switchVendor, vendor: activeVendor } = useAuth();
 
+    const [activeTab, setActiveTab] = useState(0); // 0 = Live Call Remote Control, 1 = All Vendors Directory
     const [vendors, setVendors] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // Dialog state for creating new vendor
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingVendor, setEditingVendor] = useState<any | null>(null);
+    const [saving, setSaving] = useState(false);
     const [errorMsg, setErrorMsg] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
-    const [saving, setSaving] = useState(false);
 
-    // Form fields
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [phone, setPhone] = useState('');
-    const [signatory, setSignatory] = useState('');
-    const [gstin, setGstin] = useState('');
-    const [headOffice, setHeadOffice] = useState('');
-    const [bankName, setBankName] = useState('');
-    const [accountName, setAccountName] = useState('');
-    const [accountNumber, setAccountNumber] = useState('');
-    const [ifsc, setIfsc] = useState('');
-    const [upiId, setUpiId] = useState('');
-    const [defaultMargin, setDefaultMargin] = useState(0);
+    // Remote Control Active Selected Vendor
+    const [remoteVendorId, setRemoteVendorId] = useState<string>('');
+    const [remoteVendor, setRemoteVendor] = useState<any | null>(null);
+    const [remoteSaving, setRemoteSaving] = useState(false);
+    const [remoteSuccess, setRemoteSuccess] = useState('');
+    const [remoteError, setRemoteError] = useState('');
+
+    // Remote Control Form Fields
+    const [rcName, setRcName] = useState('');
+    const [rcTagline, setRcTagline] = useState('');
+    const [rcPhone, setRcPhone] = useState('');
+    const [rcAlternatePhone, setRcAlternatePhone] = useState('');
+    const [rcEmail, setRcEmail] = useState('');
+    const [rcSignatory, setRcSignatory] = useState('');
+    const [rcGstin, setRcGstin] = useState('');
+    const [rcHeadOffice, setRcHeadOffice] = useState('');
+    const [rcRegisteredOffice, setRcRegisteredOffice] = useState('');
+    const [rcBankName, setRcBankName] = useState('');
+    const [rcBankBranch, setRcBankBranch] = useState('');
+    const [rcAccountName, setRcAccountName] = useState('');
+    const [rcAccountNumber, setRcAccountNumber] = useState('');
+    const [rcIfsc, setRcIfsc] = useState('');
+    const [rcUpiId, setRcUpiId] = useState('');
+    const [rcDefaultMargin, setRcDefaultMargin] = useState(0);
+    const [rcLogoUrl, setRcLogoUrl] = useState('/logo.png');
+    const [rcSignatureUrl, setRcSignatureUrl] = useState('/signature.png');
+    const [rcStampUrl, setRcStampUrl] = useState('/stamp.png');
+    const [rcPreferredPanelBrand, setRcPreferredPanelBrand] = useState('Adani');
+    const [rcPreferredInverterBrand, setRcPreferredInverterBrand] = useState('Polycab');
+    const [rcPreferredStructureMake, setRcPreferredStructureMake] = useState('APOLLO');
+    const [rcCustomTerms, setRcCustomTerms] = useState('');
+    const [rcResetPassword, setRcResetPassword] = useState('');
+
+    // Upload refs for remote control
+    const rcLogoInputRef = useRef<HTMLInputElement>(null);
+    const rcSigInputRef = useRef<HTMLInputElement>(null);
+    const rcStampInputRef = useRef<HTMLInputElement>(null);
+    const [uploadingRcAsset, setUploadingRcAsset] = useState<string | null>(null);
+
+    // Create Modal Form Fields
+    const [modalName, setModalName] = useState('');
+    const [modalEmail, setModalEmail] = useState('');
+    const [modalPassword, setModalPassword] = useState('');
+    const [modalPhone, setModalPhone] = useState('');
+    const [modalSignatory, setModalSignatory] = useState('');
+    const [modalGstin, setModalGstin] = useState('');
+    const [modalHeadOffice, setModalHeadOffice] = useState('');
+    const [modalBankName, setModalBankName] = useState('');
+    const [modalAccountName, setModalAccountName] = useState('');
+    const [modalAccountNumber, setModalAccountNumber] = useState('');
+    const [modalIfsc, setModalIfsc] = useState('');
+    const [modalUpiId, setModalUpiId] = useState('');
+    const [modalDefaultMargin, setModalDefaultMargin] = useState(0);
 
     const loadVendors = async () => {
         setLoading(true);
@@ -76,7 +133,15 @@ export default function AdminVendorsPage() {
             const res = await fetch('/api/vendors');
             const json = await res.json();
             if (json.success) {
-                setVendors(json.data || []);
+                const list = json.data || [];
+                setVendors(list);
+
+                // Auto select vendor for Remote Control
+                if (list.length > 0) {
+                    const targetId = initialVendorParam || remoteVendorId || list[0].id;
+                    const found = list.find((v: any) => v.id === targetId) || list[0];
+                    selectVendorForRemoteControl(found);
+                }
             }
         } catch (err) {
             console.error('Failed to load vendors:', err);
@@ -87,49 +152,168 @@ export default function AdminVendorsPage() {
 
     useEffect(() => {
         loadVendors();
-    }, []);
+    }, [initialVendorParam]);
 
+    const selectVendorForRemoteControl = (v: any) => {
+        if (!v) return;
+        setRemoteVendorId(v.id);
+        setRemoteVendor(v);
+        setRcName(v.name || '');
+        setRcTagline(v.tagline || '');
+        setRcPhone(v.phone || '');
+        setRcAlternatePhone(v.alternate_phone || '');
+        setRcEmail(v.email || '');
+        setRcSignatory(v.authorized_signatory || '');
+        setRcGstin(v.gstin || '');
+        setRcHeadOffice(v.head_office || '');
+        setRcRegisteredOffice(v.registered_office || '');
+        setRcBankName(v.bank_name || '');
+        setRcBankBranch(v.bank_branch || '');
+        setRcAccountName(v.account_name || '');
+        setRcAccountNumber(v.account_number || '');
+        setRcIfsc(v.ifsc || '');
+        setRcUpiId(v.upi_id || '');
+        setRcDefaultMargin(Number(v.default_margin) || 0);
+        setRcLogoUrl(v.logo_url || '/logo.png');
+        setRcSignatureUrl(v.signature_url || '/signature.png');
+        setRcStampUrl(v.stamp_url || '/stamp.png');
+        setRcResetPassword('');
+
+        const compSettings = v.components_settings || {};
+        setRcPreferredPanelBrand(compSettings.preferredPanelBrand || 'Adani');
+        setRcPreferredInverterBrand(compSettings.preferredInverterBrand || 'Polycab');
+        setRcPreferredStructureMake(compSettings.preferredStructureMake || 'APOLLO');
+        setRcCustomTerms(compSettings.customTerms || '');
+
+        setRemoteError('');
+        setRemoteSuccess('');
+    };
+
+    const handleRemoteSelectChange = (vendorId: string) => {
+        const found = vendors.find(v => v.id === vendorId);
+        if (found) {
+            selectVendorForRemoteControl(found);
+        }
+    };
+
+    // Upload Asset from Admin Remote Control
+    const handleRemoteUpload = async (file: File, type: 'logo' | 'signature' | 'stamp') => {
+        if (!remoteVendorId) return;
+        setUploadingRcAsset(type);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', type);
+            formData.append('vendor_id', remoteVendorId);
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const json = await res.json();
+            if (!json.success) throw new Error(json.message);
+
+            if (type === 'logo') setRcLogoUrl(json.url);
+            if (type === 'signature') setRcSignatureUrl(json.url);
+            if (type === 'stamp') setRcStampUrl(json.url);
+
+            setRemoteSuccess(`${type.toUpperCase()} uploaded to cloud bucket! Click "Save Changes" to apply.`);
+        } catch (err: any) {
+            setRemoteError(err.message || 'Upload failed');
+        } finally {
+            setUploadingRcAsset(null);
+        }
+    };
+
+    // Save Remote Control Updates
+    const handleSaveRemote = async () => {
+        if (!remoteVendorId) return;
+        setRemoteSaving(true);
+        setRemoteError('');
+        setRemoteSuccess('');
+
+        try {
+            const componentsSettings = {
+                preferredPanelBrand: rcPreferredPanelBrand,
+                preferredInverterBrand: rcPreferredInverterBrand,
+                preferredStructureMake: rcPreferredStructureMake,
+                customTerms: rcCustomTerms,
+            };
+
+            const payload: any = {
+                id: remoteVendorId,
+                name: rcName.trim(),
+                tagline: rcTagline.trim() || null,
+                phone: rcPhone.trim() || null,
+                alternate_phone: rcAlternatePhone.trim() || null,
+                email: rcEmail.trim() || null,
+                authorized_signatory: rcSignatory.trim() || null,
+                gstin: rcGstin.trim() || null,
+                head_office: rcHeadOffice.trim() || null,
+                registered_office: rcRegisteredOffice.trim() || null,
+                bank_name: rcBankName.trim() || null,
+                bank_branch: rcBankBranch.trim() || null,
+                account_name: rcAccountName.trim() || null,
+                account_number: rcAccountNumber.trim() || null,
+                ifsc: rcIfsc.trim() || null,
+                upi_id: rcUpiId.trim() || null,
+                logo_url: rcLogoUrl,
+                signature_url: rcSignatureUrl,
+                stamp_url: rcStampUrl,
+                default_margin: Number(rcDefaultMargin) || 0,
+                components_settings: componentsSettings,
+            };
+
+            if (rcResetPassword.trim().length >= 6) {
+                payload.password = rcResetPassword.trim();
+            }
+
+            const res = await fetch('/api/vendors', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            const json = await res.json();
+            if (!json.success) throw new Error(json.message);
+
+            setRemoteSuccess(`Settings for "${rcName}" updated successfully! Changes are immediately live in their workspace.`);
+            setRcResetPassword('');
+
+            // Reload vendors in background
+            const reloadRes = await fetch('/api/vendors');
+            const reloadJson = await reloadRes.json();
+            if (reloadJson.success) setVendors(reloadJson.data || []);
+        } catch (err: any) {
+            setRemoteError(err.message || 'Failed to update vendor settings');
+        } finally {
+            setRemoteSaving(false);
+        }
+    };
+
+    // Open Modal for New Vendor Creation
     const handleOpenCreate = () => {
-        setEditingVendor(null);
-        setName('');
-        setEmail('');
-        setPassword('');
-        setPhone('');
-        setSignatory('');
-        setGstin('');
-        setHeadOffice('');
-        setBankName('');
-        setAccountName('');
-        setAccountNumber('');
-        setIfsc('');
-        setUpiId('');
-        setDefaultMargin(0);
+        setModalName('');
+        setModalEmail('');
+        setModalPassword('');
+        setModalPhone('');
+        setModalSignatory('');
+        setModalGstin('');
+        setModalHeadOffice('');
+        setModalBankName('');
+        setModalAccountName('');
+        setModalAccountNumber('');
+        setModalIfsc('');
+        setModalUpiId('');
+        setModalDefaultMargin(0);
         setErrorMsg('');
         setDialogOpen(true);
     };
 
-    const handleOpenEdit = (v: any) => {
-        setEditingVendor(v);
-        setName(v.name || '');
-        setEmail(v.email || '');
-        setPassword(''); // keep blank unless resetting
-        setPhone(v.phone || '');
-        setSignatory(v.authorized_signatory || '');
-        setGstin(v.gstin || '');
-        setHeadOffice(v.head_office || '');
-        setBankName(v.bank_name || '');
-        setAccountName(v.account_name || '');
-        setAccountNumber(v.account_number || '');
-        setIfsc(v.ifsc || '');
-        setUpiId(v.upi_id || '');
-        setDefaultMargin(Number(v.default_margin) || 0);
-        setErrorMsg('');
-        setDialogOpen(true);
-    };
-
-    const handleSave = async () => {
-        if (!name.trim()) {
-            setErrorMsg('Vendor/Company name is required');
+    const handleCreateVendor = async () => {
+        if (!modalName.trim()) {
+            setErrorMsg('Vendor / Company name is required');
             return;
         }
 
@@ -138,56 +322,29 @@ export default function AdminVendorsPage() {
         setSuccessMsg('');
 
         try {
-            if (editingVendor) {
-                // Update
-                const res = await fetch('/api/vendors', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        id: editingVendor.id,
-                        name: name.trim(),
-                        email: email.trim() || null,
-                        phone: phone.trim() || null,
-                        authorized_signatory: signatory.trim() || null,
-                        gstin: gstin.trim() || null,
-                        head_office: headOffice.trim() || null,
-                        bank_name: bankName.trim() || null,
-                        account_name: accountName.trim() || null,
-                        account_number: accountNumber.trim() || null,
-                        ifsc: ifsc.trim() || null,
-                        upi_id: upiId.trim() || null,
-                        default_margin: Number(defaultMargin) || 0,
-                    }),
-                });
-                const json = await res.json();
-                if (!json.success) throw new Error(json.message);
-                setSuccessMsg('Vendor updated successfully!');
-            } else {
-                // Create
-                const res = await fetch('/api/vendors', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: name.trim(),
-                        email: email.trim() || null,
-                        password: password.trim() || null,
-                        phone: phone.trim() || null,
-                        authorized_signatory: signatory.trim() || null,
-                        gstin: gstin.trim() || null,
-                        head_office: headOffice.trim() || null,
-                        bank_name: bankName.trim() || null,
-                        account_name: accountName.trim() || null,
-                        account_number: accountNumber.trim() || null,
-                        ifsc: ifsc.trim() || null,
-                        upi_id: upiId.trim() || null,
-                        default_margin: Number(defaultMargin) || 0,
-                    }),
-                });
-                const json = await res.json();
-                if (!json.success) throw new Error(json.message);
-                setSuccessMsg(`Vendor "${name}" created with ID & login credentials!`);
-            }
+            const res = await fetch('/api/vendors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: modalName.trim(),
+                    email: modalEmail.trim() || null,
+                    password: modalPassword.trim() || null,
+                    phone: modalPhone.trim() || null,
+                    authorized_signatory: modalSignatory.trim() || null,
+                    gstin: modalGstin.trim() || null,
+                    head_office: modalHeadOffice.trim() || null,
+                    bank_name: modalBankName.trim() || null,
+                    account_name: modalAccountName.trim() || null,
+                    account_number: modalAccountNumber.trim() || null,
+                    ifsc: modalIfsc.trim() || null,
+                    upi_id: modalUpiId.trim() || null,
+                    default_margin: Number(modalDefaultMargin) || 0,
+                }),
+            });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.message);
 
+            setSuccessMsg(`Vendor "${modalName}" created with login credentials!`);
             setDialogOpen(false);
             loadVendors();
         } catch (err: any) {
@@ -210,26 +367,34 @@ export default function AdminVendorsPage() {
         }
     };
 
+    const handleSimulate = (v: any) => {
+        switchVendor(v);
+        router.push('/');
+    };
+
     return (
-        <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', py: 4 }}>
-            <Container maxWidth="lg">
+        <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', py: 3 }}>
+            <Container maxWidth="xl">
                 {/* Header */}
-                <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Button
                             variant="outlined"
                             startIcon={<ArrowBackIcon />}
                             onClick={() => router.push('/admin')}
-                            sx={{ borderColor: '#ccc', color: '#555' }}
+                            sx={{ borderColor: '#cbd5e1', color: '#475569' }}
                         >
-                            Admin Hub
+                            Overview
                         </Button>
                         <Box>
-                            <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b' }}>
-                                Vendor SaaS Management
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a' }}>
+                                    Vendor Control & Live Call Override
+                                </Typography>
+                                <Chip label="Layer 1 Master Console" size="small" sx={{ bgcolor: '#0f172a', color: '#fff', fontWeight: 800 }} />
+                            </Box>
                             <Typography variant="body2" sx={{ color: '#64748b' }}>
-                                Manage multi-tenant vendors, their login credentials, branding seals & quotations
+                                Select any active vendor to automatically fetch their settings, modify components, or adjust margins verbally on call
                             </Typography>
                         </Box>
                     </Box>
@@ -238,330 +403,616 @@ export default function AdminVendorsPage() {
                         variant="contained"
                         startIcon={<AddBusinessIcon />}
                         onClick={handleOpenCreate}
-                        sx={{
-                            bgcolor: '#ff9800',
-                            '&:hover': { bgcolor: '#f57c00' },
-                            fontWeight: 700,
-                            borderRadius: 2,
-                            px: 3,
-                            py: 1.2
-                        }}
+                        sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 700 }}
                     >
                         Register New Vendor
                     </Button>
                 </Box>
 
-                {successMsg && (
-                    <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSuccessMsg('')}>
-                        {successMsg}
-                    </Alert>
-                )}
+                {/* Mode Tabs */}
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                    <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)}>
+                        <Tab
+                            icon={<PhoneInTalkIcon sx={{ fontSize: 18 }} />}
+                            iconPosition="start"
+                            label="Live Call Remote Control"
+                            sx={{ fontWeight: 700, textTransform: 'none', fontSize: 14 }}
+                        />
+                        <Tab
+                            icon={<StorefrontIcon sx={{ fontSize: 18 }} />}
+                            iconPosition="start"
+                            label={`All Vendors Directory (${vendors.length})`}
+                            sx={{ fontWeight: 700, textTransform: 'none', fontSize: 14 }}
+                        />
+                    </Tabs>
+                </Box>
 
-                {/* Active Vendor Banner */}
-                <Card sx={{ mb: 4, borderRadius: 3, bgcolor: '#0f172a', color: '#fff', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-                    <CardContent sx={{ p: 3 }}>
-                        <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" justifyContent="space-between" spacing={2}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                <StorefrontIcon sx={{ fontSize: 40, color: '#ff9800' }} />
-                                <Box>
-                                    <Typography variant="caption" sx={{ color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>
-                                        Currently Active Simulation Tenant
-                                    </Typography>
-                                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#fff' }}>
-                                        {activeVendor?.name || 'Default System'}
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ color: '#cbd5e1' }}>
-                                        Authorized Signatory: <strong>{activeVendor?.authorized_signatory || 'N/A'}</strong> &bull; Bank: {activeVendor?.bank_name || 'HDFC Bank'}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                            <Button
-                                variant="outlined"
-                                onClick={() => router.push('/')}
-                                sx={{ color: '#ff9800', borderColor: '#ff9800', fontWeight: 700 }}
-                            >
-                                Open Quotation Builder as this Vendor
-                            </Button>
-                        </Stack>
-                    </CardContent>
-                </Card>
+                {/* TAB 0: LIVE CALL REMOTE CONTROL */}
+                {activeTab === 0 && (
+                    <Box>
+                        {/* Vendor Dropdown Selector Bar */}
+                        <Card sx={{ mb: 3, borderRadius: 3, border: '2px solid #2563eb', bgcolor: '#eff6ff', boxShadow: '0 4px 20px rgba(37,99,235,0.1)' }}>
+                            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                                <Grid container spacing={2} alignItems="center">
+                                    <Grid size={{ xs: 12, md: 5 }}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                            <Box
+                                                sx={{
+                                                    width: 44,
+                                                    height: 44,
+                                                    borderRadius: 2,
+                                                    bgcolor: '#2563eb',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    color: '#fff',
+                                                    boxShadow: '0 4px 10px rgba(37,99,235,0.3)',
+                                                }}
+                                            >
+                                                <PhoneInTalkIcon sx={{ fontSize: 24 }} />
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e3a8a', lineHeight: 1.2 }}>
+                                                    Active Vendor On-Call Selector
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ color: '#3b82f6', fontWeight: 600 }}>
+                                                    Instantly fetches settings & components for live phone discussion
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </Grid>
 
-                {/* Vendors Table */}
-                <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                    <CardContent sx={{ p: 0 }}>
-                        <TableContainer component={Paper} elevation={0}>
-                            <Table sx={{ minWidth: 700 }}>
-                                <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 700, color: '#475569' }}>Vendor / Company</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: '#475569' }}>Login / Email</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: '#475569' }}>Signatory</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: '#475569' }}>Phone & Location</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: '#475569' }}>Quotes</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: '#475569' }}>Status</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, color: '#475569' }}>Actions</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {loading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                                                <CircularProgress size={32} />
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : vendors.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} align="center" sx={{ py: 6, color: '#64748b' }}>
-                                                No vendors found. Click &quot;Register New Vendor&quot; to add your first client.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        vendors.map((v) => {
-                                            const quoteCount = v.quotations?.[0]?.count ?? 0;
-                                            const isActive = v.status === 'active';
-                                            const isCurrent = activeVendor?.id === v.id;
+                                    <Grid size={{ xs: 12, md: 4 }}>
+                                        <FormControl fullWidth size="small">
+                                            <InputLabel sx={{ fontWeight: 700 }}>Choose Vendor to Manage</InputLabel>
+                                            <Select
+                                                value={remoteVendorId}
+                                                label="Choose Vendor to Manage"
+                                                onChange={(e) => handleRemoteSelectChange(e.target.value)}
+                                                sx={{ bgcolor: '#fff', fontWeight: 700 }}
+                                            >
+                                                {vendors.map((v) => (
+                                                    <MenuItem key={v.id} value={v.id}>
+                                                        🏢 {v.name} {v.phone ? `(${v.phone})` : ''}
+                                                    </MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                    </Grid>
 
-                                            return (
-                                                <TableRow key={v.id} hover sx={{ bgcolor: isCurrent ? 'rgba(255, 152, 0, 0.05)' : 'inherit' }}>
-                                                    <TableCell>
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                            <Box>
-                                                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e293b' }}>
-                                                                    {v.name}
-                                                                </Typography>
-                                                                {isCurrent && (
-                                                                    <Chip label="Current Active" size="small" sx={{ bgcolor: '#ff9800', color: '#fff', fontSize: '0.65rem', height: 18, mt: 0.5 }} />
-                                                                )}
-                                                            </Box>
-                                                        </Box>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Typography variant="body2" sx={{ color: '#334155' }}>
-                                                            {v.email || '—'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Typography variant="body2" sx={{ color: '#334155', fontWeight: 600 }}>
-                                                            {v.authorized_signatory || '—'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Typography variant="body2" sx={{ color: '#334155' }}>
-                                                            {v.phone || '—'}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                                            {v.head_office || ''}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Chip label={`${quoteCount} Quotes`} size="small" variant="outlined" sx={{ fontWeight: 600 }} />
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Chip
-                                                            label={v.status}
-                                                            size="small"
-                                                            color={isActive ? 'success' : 'default'}
-                                                            sx={{ textTransform: 'capitalize', fontWeight: 600 }}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell align="right">
-                                                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                                            <Tooltip title="Switch to this Vendor profile">
-                                                                <IconButton size="small" onClick={() => switchVendor(v)} sx={{ color: '#ff9800' }}>
-                                                                    <VisibilityIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Edit Profile & Bank details">
-                                                                <IconButton size="small" onClick={() => handleOpenEdit(v)} sx={{ color: '#2563eb' }}>
-                                                                    <EditIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            {isActive && (
-                                                                <Tooltip title="Deactivate Vendor">
-                                                                    <IconButton size="small" onClick={() => handleDeactivate(v.id)} sx={{ color: '#ef4444' }}>
-                                                                        <DeleteOutlineIcon fontSize="small" />
-                                                                    </IconButton>
-                                                                </Tooltip>
-                                                            )}
-                                                        </Stack>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </CardContent>
-                </Card>
+                                    <Grid size={{ xs: 12, md: 3 }} sx={{ display: 'flex', gap: 1, justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+                                        <Button
+                                            variant="contained"
+                                            startIcon={remoteSaving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SaveIcon />}
+                                            onClick={handleSaveRemote}
+                                            disabled={remoteSaving || !remoteVendorId}
+                                            sx={{ bgcolor: '#2563eb', '&:hover': { bgcolor: '#1d4ed8' }, fontWeight: 700 }}
+                                        >
+                                            {remoteSaving ? 'Saving...' : 'Save Changes'}
+                                        </Button>
 
-                {/* Dialog: Create / Edit Vendor */}
-                <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
-                    <DialogTitle sx={{ fontWeight: 800, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                        {editingVendor ? `Edit Vendor: ${editingVendor.name}` : 'Register New Vendor with ID & Password'}
-                    </DialogTitle>
-                    <DialogContent sx={{ pt: 3 }}>
-                        {errorMsg && (
-                            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
-                                {errorMsg}
+                                        {remoteVendor && (
+                                            <Button
+                                                variant="outlined"
+                                                endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
+                                                onClick={() => handleSimulate(remoteVendor)}
+                                                sx={{ borderColor: '#2563eb', color: '#2563eb', fontWeight: 700, bgcolor: '#fff' }}
+                                                title="Open Quotation Builder simulating this vendor"
+                                            >
+                                                Builder
+                                            </Button>
+                                        )}
+                                    </Grid>
+                                </Grid>
+                            </CardContent>
+                        </Card>
+
+                        {remoteSuccess && (
+                            <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setRemoteSuccess('')}>
+                                {remoteSuccess}
                             </Alert>
                         )}
 
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#ff9800', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <StorefrontIcon fontSize="small" /> Company Profile & Branding
-                        </Typography>
-                        <Grid container spacing={2} sx={{ mb: 3 }}>
+                        {remoteError && (
+                            <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setRemoteError('')}>
+                                {remoteError}
+                            </Alert>
+                        )}
+
+                        {loading ? (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+                                <CircularProgress />
+                            </Box>
+                        ) : !remoteVendor ? (
+                            <Box sx={{ textAlign: 'center', py: 6 }}>
+                                <Typography color="text.secondary">No vendor selected.</Typography>
+                            </Box>
+                        ) : (
+                            <Grid container spacing={3}>
+                                {/* Left Column: Components, Pricing & Credentials */}
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    {/* 1. Pricing Engine & Component Settings */}
+                                    <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '4px solid #f59e0b' }}>
+                                        <CardContent sx={{ p: 3 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                <TuneIcon sx={{ color: '#d97706' }} />
+                                                <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                                                    Component Defaults & Custom Margins
+                                                </Typography>
+                                            </Box>
+                                            <Typography variant="body2" sx={{ color: '#64748b', mb: 2.5 }}>
+                                                Adjust what this vendor sees by default on their quotation builder.
+                                            </Typography>
+
+                                            <Grid container spacing={2}>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField
+                                                        fullWidth
+                                                        type="number"
+                                                        label="Custom Profit Margin (₹ / kW)"
+                                                        value={rcDefaultMargin}
+                                                        onChange={(e) => setRcDefaultMargin(Number(e.target.value))}
+                                                        helperText="Automatically applied to baseline products"
+                                                    />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <FormControl fullWidth>
+                                                        <InputLabel>Preferred Panel Brand</InputLabel>
+                                                        <Select
+                                                            value={rcPreferredPanelBrand}
+                                                            label="Preferred Panel Brand"
+                                                            onChange={(e) => setRcPreferredPanelBrand(e.target.value)}
+                                                        >
+                                                            {['Adani', 'Waaree', 'Goldi', 'Rayzon', 'Premier', 'Vikram Solar', 'Other'].map(b => (
+                                                                <MenuItem key={b} value={b}>{b}</MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <FormControl fullWidth>
+                                                        <InputLabel>Preferred Inverter Brand</InputLabel>
+                                                        <Select
+                                                            value={rcPreferredInverterBrand}
+                                                            label="Preferred Inverter Brand"
+                                                            onChange={(e) => setRcPreferredInverterBrand(e.target.value)}
+                                                        >
+                                                            {['Polycab', 'Growatt', 'Deye', 'Solis', 'Sungrow', 'GoodWe', 'Luminous', 'Other'].map(b => (
+                                                                <MenuItem key={b} value={b}>{b}</MenuItem>
+                                                            ))}
+                                                        </Select>
+                                                    </FormControl>
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <FormControl fullWidth>
+                                                        <InputLabel>Structure Make Specification</InputLabel>
+                                                        <Select
+                                                            value={rcPreferredStructureMake}
+                                                            label="Structure Make Specification"
+                                                            onChange={(e) => setRcPreferredStructureMake(e.target.value)}
+                                                        >
+                                                            <MenuItem value="APOLLO">APOLLO (Default)</MenuItem>
+                                                            <MenuItem value="TATA">TATA</MenuItem>
+                                                            <MenuItem value="APOLLO / TATA">APOLLO / TATA</MenuItem>
+                                                        </Select>
+                                                    </FormControl>
+                                                </Grid>
+                                                <Grid size={{ xs: 12 }}>
+                                                    <TextField
+                                                        fullWidth
+                                                        multiline
+                                                        rows={2}
+                                                        label="Custom Proposal Terms & Notes"
+                                                        value={rcCustomTerms}
+                                                        onChange={(e) => setRcCustomTerms(e.target.value)}
+                                                        placeholder="e.g. 50% advance with order, net metering included."
+                                                    />
+                                                </Grid>
+                                            </Grid>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 2. On-Call Credentials & Password Reset */}
+                                    <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '4px solid #6366f1' }}>
+                                        <CardContent sx={{ p: 3 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                <LockResetIcon sx={{ color: '#4f46e5' }} />
+                                                <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                                                    Credentials & On-Call Password Reset
+                                                </Typography>
+                                            </Box>
+                                            <Typography variant="body2" sx={{ color: '#64748b', mb: 2 }}>
+                                                If vendor forgot credentials on the call, you can verbally issue a new password immediately.
+                                            </Typography>
+
+                                            <Grid container spacing={2}>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField
+                                                        fullWidth
+                                                        label="Login Email"
+                                                        type="email"
+                                                        value={rcEmail}
+                                                        onChange={(e) => setRcEmail(e.target.value)}
+                                                    />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField
+                                                        fullWidth
+                                                        label="Reset Password On Call"
+                                                        type="text"
+                                                        placeholder="Enter new password (min 6 chars)"
+                                                        value={rcResetPassword}
+                                                        onChange={(e) => setRcResetPassword(e.target.value)}
+                                                        helperText="Leave empty to keep existing password"
+                                                    />
+                                                </Grid>
+                                            </Grid>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* 3. Official Bank & Settlement */}
+                                    <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '4px solid #10b981' }}>
+                                        <CardContent sx={{ p: 3 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                <AccountBalanceIcon sx={{ color: '#059669' }} />
+                                                <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                                                    Bank Account & UPI Settlement
+                                                </Typography>
+                                            </Box>
+                                            <Typography variant="body2" sx={{ color: '#64748b', mb: 2 }}>
+                                                Printed on the vendor's customer quotations for direct payments.
+                                            </Typography>
+
+                                            <Grid container spacing={2}>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="Bank Name" value={rcBankName} onChange={(e) => setRcBankName(e.target.value)} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="Branch Name" value={rcBankBranch} onChange={(e) => setRcBankBranch(e.target.value)} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="Account Holder Name" value={rcAccountName} onChange={(e) => setRcAccountName(e.target.value)} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="Account Number" value={rcAccountNumber} onChange={(e) => setRcAccountNumber(e.target.value)} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="IFSC Code" value={rcIfsc} onChange={(e) => setRcIfsc(e.target.value.toUpperCase())} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="UPI ID / VPA" value={rcUpiId} onChange={(e) => setRcUpiId(e.target.value)} />
+                                                </Grid>
+                                            </Grid>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+
+                                {/* Right Column: Brand Assets & Company Details */}
+                                <Grid size={{ xs: 12, md: 6 }}>
+                                    {/* Brand Visual Assets */}
+                                    <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '4px solid #ef4444' }}>
+                                        <CardContent sx={{ p: 3 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <VerifiedIcon sx={{ color: '#dc2626' }} />
+                                                    <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                                                        Visual Brand Seals & Assets
+                                                    </Typography>
+                                                </Box>
+                                                <Chip label="Cloud Stored" size="small" sx={{ bgcolor: '#fee2e2', color: '#dc2626', fontWeight: 700 }} />
+                                            </Box>
+                                            <Typography variant="body2" sx={{ color: '#64748b', mb: 2.5 }}>
+                                                View what this vendor has uploaded or upload assets directly on their behalf.
+                                            </Typography>
+
+                                            <Grid container spacing={2}>
+                                                {/* Logo */}
+                                                <Grid size={{ xs: 12, sm: 4 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center', bgcolor: '#f8fafc' }}>
+                                                        <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                            Shop Logo
+                                                        </Typography>
+                                                        <Box sx={{ height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1, bgcolor: '#fff', borderRadius: 1 }}>
+                                                            <Box component="img" src={rcLogoUrl || '/logo.png'} alt="Logo" sx={{ maxHeight: 60, maxWidth: '100%', objectFit: 'contain' }} onError={(e: any) => { e.target.src = '/logo.png'; }} />
+                                                        </Box>
+                                                        <input type="file" ref={rcLogoInputRef} accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRemoteUpload(f, 'logo'); }} />
+                                                        <Button size="small" variant="outlined" startIcon={uploadingRcAsset === 'logo' ? <CircularProgress size={12} /> : <CloudUploadIcon sx={{ fontSize: 13 }} />} onClick={() => rcLogoInputRef.current?.click()} disabled={!!uploadingRcAsset} sx={{ fontSize: 10, textTransform: 'none', py: 0.2 }}>
+                                                            {uploadingRcAsset === 'logo' ? 'Uploading...' : 'Replace'}
+                                                        </Button>
+                                                    </Box>
+                                                </Grid>
+
+                                                {/* Signature */}
+                                                <Grid size={{ xs: 12, sm: 4 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center', bgcolor: '#f8fafc' }}>
+                                                        <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                            Signature
+                                                        </Typography>
+                                                        <Box sx={{ height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1, bgcolor: '#fff', borderRadius: 1 }}>
+                                                            <Box component="img" src={rcSignatureUrl || '/signature.png'} alt="Signature" sx={{ maxHeight: 60, maxWidth: '100%', objectFit: 'contain' }} onError={(e: any) => { e.target.src = '/signature.png'; }} />
+                                                        </Box>
+                                                        <input type="file" ref={rcSigInputRef} accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRemoteUpload(f, 'signature'); }} />
+                                                        <Button size="small" variant="outlined" startIcon={uploadingRcAsset === 'signature' ? <CircularProgress size={12} /> : <CloudUploadIcon sx={{ fontSize: 13 }} />} onClick={() => rcSigInputRef.current?.click()} disabled={!!uploadingRcAsset} sx={{ fontSize: 10, textTransform: 'none', py: 0.2 }}>
+                                                            {uploadingRcAsset === 'signature' ? 'Uploading...' : 'Replace'}
+                                                        </Button>
+                                                    </Box>
+                                                </Grid>
+
+                                                {/* Stamp */}
+                                                <Grid size={{ xs: 12, sm: 4 }}>
+                                                    <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed #cbd5e1', textAlign: 'center', bgcolor: '#f8fafc' }}>
+                                                        <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
+                                                            Stamp Seal
+                                                        </Typography>
+                                                        <Box sx={{ height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1, bgcolor: '#fff', borderRadius: 1 }}>
+                                                            <Box component="img" src={rcStampUrl || '/stamp.png'} alt="Stamp" sx={{ maxHeight: 60, maxWidth: '100%', objectFit: 'contain' }} onError={(e: any) => { e.target.src = '/stamp.png'; }} />
+                                                        </Box>
+                                                        <input type="file" ref={rcStampInputRef} accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRemoteUpload(f, 'stamp'); }} />
+                                                        <Button size="small" variant="outlined" startIcon={uploadingRcAsset === 'stamp' ? <CircularProgress size={12} /> : <CloudUploadIcon sx={{ fontSize: 13 }} />} onClick={() => rcStampInputRef.current?.click()} disabled={!!uploadingRcAsset} sx={{ fontSize: 10, textTransform: 'none', py: 0.2 }}>
+                                                            {uploadingRcAsset === 'stamp' ? 'Uploading...' : 'Replace'}
+                                                        </Button>
+                                                    </Box>
+                                                </Grid>
+                                            </Grid>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Company Identification & Addresses */}
+                                    <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', borderTop: '4px solid #0284c7' }}>
+                                        <CardContent sx={{ p: 3 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                <StorefrontIcon sx={{ color: '#0284c7' }} />
+                                                <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                                                    Company Details & Legal Info
+                                                </Typography>
+                                            </Box>
+                                            <Typography variant="body2" sx={{ color: '#64748b', mb: 2.5 }}>
+                                                Identity details printed on every quotation header.
+                                            </Typography>
+
+                                            <Grid container spacing={2}>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="Shop / Company Name" value={rcName} onChange={(e) => setRcName(e.target.value)} required />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="Authorized Signatory Name" value={rcSignatory} onChange={(e) => setRcSignatory(e.target.value)} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12 }}>
+                                                    <TextField fullWidth label="Company Tagline" value={rcTagline} onChange={(e) => setRcTagline(e.target.value)} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="Primary Phone" value={rcPhone} onChange={(e) => setRcPhone(e.target.value)} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="WhatsApp Phone" value={rcAlternatePhone} onChange={(e) => setRcAlternatePhone(e.target.value)} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="GSTIN Number" value={rcGstin} onChange={(e) => setRcGstin(e.target.value)} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12, sm: 6 }}>
+                                                    <TextField fullWidth label="Status" value={remoteVendor.status || 'active'} disabled />
+                                                </Grid>
+                                                <Grid size={{ xs: 12 }}>
+                                                    <TextField fullWidth label="Head Office Address" value={rcHeadOffice} onChange={(e) => setRcHeadOffice(e.target.value)} />
+                                                </Grid>
+                                                <Grid size={{ xs: 12 }}>
+                                                    <TextField fullWidth label="Registered Office Address" value={rcRegisteredOffice} onChange={(e) => setRcRegisteredOffice(e.target.value)} />
+                                                </Grid>
+                                            </Grid>
+                                        </CardContent>
+                                    </Card>
+
+                                    {/* Save Button Floating / Sticky at bottom */}
+                                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mb: 4 }}>
+                                        <Button
+                                            variant="contained"
+                                            size="large"
+                                            startIcon={remoteSaving ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : <SaveIcon />}
+                                            onClick={handleSaveRemote}
+                                            disabled={remoteSaving}
+                                            sx={{
+                                                bgcolor: '#2563eb',
+                                                '&:hover': { bgcolor: '#1d4ed8' },
+                                                fontWeight: 800,
+                                                px: 4,
+                                                py: 1.5,
+                                                boxShadow: '0 8px 20px rgba(37,99,235,0.3)',
+                                            }}
+                                        >
+                                            {remoteSaving ? 'Saving Changes...' : 'Save Changes to Vendor Workspace'}
+                                        </Button>
+                                    </Box>
+                                </Grid>
+                            </Grid>
+                        )}
+                    </Box>
+                )}
+
+                {/* TAB 1: ALL VENDORS DIRECTORY */}
+                {activeTab === 1 && (
+                    <Box>
+                        {successMsg && (
+                            <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setSuccessMsg('')}>
+                                {successMsg}
+                            </Alert>
+                        )}
+
+                        <Card sx={{ borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+                            <TableContainer>
+                                <Table>
+                                    <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                                        <TableRow>
+                                            <TableCell sx={{ fontWeight: 700 }}>Vendor / Company</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Contact Info</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>GSTIN</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Margin / kW</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Quotes</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                                            <TableCell sx={{ fontWeight: 700 }} align="center">Actions</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {vendors.map((v) => (
+                                            <TableRow key={v.id} hover>
+                                                <TableCell>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                        <Box
+                                                            component="img"
+                                                            src={v.logo_url || '/logo.png'}
+                                                            alt="Logo"
+                                                            sx={{ width: 36, height: 36, objectFit: 'contain', bgcolor: '#f1f5f9', borderRadius: 1.5, p: 0.5 }}
+                                                            onError={(e: any) => { e.target.src = '/logo.png'; }}
+                                                        />
+                                                        <Box>
+                                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a' }}>
+                                                                {v.name}
+                                                            </Typography>
+                                                            <Typography variant="caption" sx={{ color: '#64748b' }}>
+                                                                Signatory: {v.authorized_signatory || 'N/A'}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Box>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2">{v.phone || '-'}</Typography>
+                                                    <Typography variant="caption" sx={{ color: '#64748b' }}>{v.email || '-'}</Typography>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                                                        {v.gstin || '-'}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={`₹${v.default_margin || 0}/kW`}
+                                                        size="small"
+                                                        sx={{ bgcolor: '#ecfdf5', color: '#059669', fontWeight: 700 }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        icon={<ReceiptIcon sx={{ fontSize: '13px !important' }} />}
+                                                        label={v.quotations?.[0]?.count ?? 0}
+                                                        size="small"
+                                                        sx={{ bgcolor: '#eff6ff', color: '#2563eb', fontWeight: 700 }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={v.status}
+                                                        size="small"
+                                                        color={v.status === 'active' ? 'success' : 'default'}
+                                                        sx={{ fontWeight: 700, textTransform: 'capitalize' }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <Stack direction="row" spacing={0.5} justifyContent="center">
+                                                        <Tooltip title="Manage on Call">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => {
+                                                                    selectVendorForRemoteControl(v);
+                                                                    setActiveTab(0);
+                                                                }}
+                                                                sx={{ color: '#2563eb' }}
+                                                            >
+                                                                <PhoneInTalkIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Simulate Vendor">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleSimulate(v)}
+                                                                sx={{ color: '#ff9800' }}
+                                                            >
+                                                                <VisibilityIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Deactivate">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleDeactivate(v.id)}
+                                                                sx={{ color: '#ef4444' }}
+                                                            >
+                                                                <DeleteOutlineIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Stack>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Card>
+                    </Box>
+                )}
+
+                {/* CREATE VENDOR DIALOG */}
+                <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+                    <DialogTitle sx={{ fontWeight: 800 }}>
+                        Register New Vendor Account
+                    </DialogTitle>
+                    <DialogContent dividers>
+                        {errorMsg && (
+                            <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>
+                        )}
+
+                        <Grid container spacing={2} sx={{ mt: 0.5 }}>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Company / Shop Name *"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder="e.g. Surya Solar Enterprise"
-                                    required
-                                />
+                                <TextField fullWidth label="Company / Shop Name *" value={modalName} onChange={(e) => setModalName(e.target.value)} required />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Authorized Signatory Name *"
-                                    value={signatory}
-                                    onChange={(e) => setSignatory(e.target.value)}
-                                    placeholder="e.g. Rajesh Kumar"
-                                />
+                                <TextField fullWidth label="Authorized Signatory Name" value={modalSignatory} onChange={(e) => setModalSignatory(e.target.value)} placeholder="Karan Gond" />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Contact Phone"
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    placeholder="+91 9876543210"
-                                />
+                                <TextField fullWidth label="Vendor Login Email" type="email" value={modalEmail} onChange={(e) => setModalEmail(e.target.value)} placeholder="vendor@shop.com" />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="GSTIN Number"
-                                    value={gstin}
-                                    onChange={(e) => setGstin(e.target.value)}
-                                    placeholder="09AAAAA0000A1Z5"
-                                />
+                                <TextField fullWidth label="Vendor Password" type="text" value={modalPassword} onChange={(e) => setModalPassword(e.target.value)} placeholder="Min 6 characters" />
                             </Grid>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <TextField fullWidth label="Phone Number" value={modalPhone} onChange={(e) => setModalPhone(e.target.value)} />
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <TextField fullWidth label="GSTIN" value={modalGstin} onChange={(e) => setModalGstin(e.target.value)} />
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <TextField fullWidth type="number" label="Default Profit Margin (₹/kW)" value={modalDefaultMargin} onChange={(e) => setModalDefaultMargin(Number(e.target.value))} />
+                            </Grid>
+                            <Grid size={{ xs: 12, sm: 6 }}>
+                                <TextField fullWidth label="Head Office Address" value={modalHeadOffice} onChange={(e) => setModalHeadOffice(e.target.value)} />
+                            </Grid>
+
                             <Grid size={{ xs: 12 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Office Address"
-                                    value={headOffice}
-                                    onChange={(e) => setHeadOffice(e.target.value)}
-                                    placeholder="Plot No. 12, Main Road, City, Pincode"
-                                />
+                                <Divider sx={{ my: 1 }}>
+                                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+                                        BANK SETTLEMENT DETAILS
+                                    </Typography>
+                                </Divider>
                             </Grid>
-                        </Grid>
 
-                        <Divider sx={{ my: 2 }} />
-
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#2563eb', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <KeyIcon fontSize="small" /> Login Credentials
-                        </Typography>
-                        <Grid container spacing={2} sx={{ mb: 3 }}>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Login Email Address *"
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="vendor@company.com"
-                                    helperText="This email will be the Vendor Login ID"
-                                />
+                                <TextField fullWidth label="Bank Name" value={modalBankName} onChange={(e) => setModalBankName(e.target.value)} placeholder="HDFC Bank" />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label={editingVendor ? 'Reset Password (optional)' : 'Vendor Initial Password *'}
-                                    type="text"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Minimum 6 characters"
-                                    helperText="Give this password to the vendor to log in"
-                                />
-                            </Grid>
-                        </Grid>
-
-                        <Divider sx={{ my: 2 }} />
-
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#10b981', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <AccountBalanceIcon fontSize="small" /> Bank Details (Printed on Quotation)
-                        </Typography>
-                        <Grid container spacing={2}>
-                            <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Bank Name"
-                                    value={bankName}
-                                    onChange={(e) => setBankName(e.target.value)}
-                                    placeholder="State Bank of India / HDFC"
-                                />
+                                <TextField fullWidth label="Account Holder" value={modalAccountName} onChange={(e) => setModalAccountName(e.target.value)} />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Account Name"
-                                    value={accountName}
-                                    onChange={(e) => setAccountName(e.target.value)}
-                                    placeholder="Account Beneficiary Name"
-                                />
+                                <TextField fullWidth label="Account Number" value={modalAccountNumber} onChange={(e) => setModalAccountNumber(e.target.value)} />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="Account Number"
-                                    value={accountNumber}
-                                    onChange={(e) => setAccountNumber(e.target.value)}
-                                    placeholder="Account Number"
-                                />
+                                <TextField fullWidth label="IFSC Code" value={modalIfsc} onChange={(e) => setModalIfsc(e.target.value.toUpperCase())} />
                             </Grid>
                             <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="IFSC Code"
-                                    value={ifsc}
-                                    onChange={(e) => setIfsc(e.target.value)}
-                                    placeholder="SBIN0001234"
-                                />
-                            </Grid>
-                            <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    label="UPI ID (for QR code)"
-                                    value={upiId}
-                                    onChange={(e) => setUpiId(e.target.value)}
-                                    placeholder="company@upi"
-                                />
-                            </Grid>
-                            <Grid size={{ xs: 12, sm: 6 }}>
-                                <TextField
-                                    fullWidth
-                                    type="number"
-                                    label="Default Margin per Quotation (₹)"
-                                    value={defaultMargin}
-                                    onChange={(e) => setDefaultMargin(Number(e.target.value))}
-                                />
+                                <TextField fullWidth label="UPI ID" value={modalUpiId} onChange={(e) => setModalUpiId(e.target.value)} />
                             </Grid>
                         </Grid>
                     </DialogContent>
-                    <DialogActions sx={{ p: 2.5, bgcolor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-                        <Button onClick={() => setDialogOpen(false)} disabled={saving}>
-                            Cancel
-                        </Button>
-                        <Button
-                            variant="contained"
-                            onClick={handleSave}
-                            disabled={saving}
-                            sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 700, px: 3 }}
-                        >
-                            {saving ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : editingVendor ? 'Update Vendor' : 'Create Vendor & Issue Credentials'}
+                    <DialogActions sx={{ p: 2.5 }}>
+                        <Button onClick={() => setDialogOpen(false)} sx={{ color: '#64748b' }}>Cancel</Button>
+                        <Button variant="contained" onClick={handleCreateVendor} disabled={saving} sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 700 }}>
+                            {saving ? 'Creating...' : 'Provision Vendor Account'}
                         </Button>
                     </DialogActions>
                 </Dialog>

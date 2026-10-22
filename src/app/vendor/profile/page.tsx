@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     Container,
@@ -14,13 +14,24 @@ import {
     Alert,
     CircularProgress,
     Divider,
-    Stack
+    Stack,
+    Chip,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    IconButton,
+    Tooltip
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import StorefrontIcon from '@mui/icons-material/Storefront';
 import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import VerifiedIcon from '@mui/icons-material/Verified';
+import TuneIcon from '@mui/icons-material/Tune';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useAuth } from '@/context/AuthContext';
 
 export default function VendorProfilePage() {
@@ -28,9 +39,13 @@ export default function VendorProfilePage() {
     const { user, vendor, refreshVendor, loading: authLoading } = useAuth();
 
     const [saving, setSaving] = useState(false);
+    const [uploadingLogo, setUploadingLogo] = useState(false);
+    const [uploadingSignature, setUploadingSignature] = useState(false);
+    const [uploadingStamp, setUploadingStamp] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
 
+    // Form fields
     const [name, setName] = useState('');
     const [tagline, setTagline] = useState('');
     const [phone, setPhone] = useState('');
@@ -40,13 +55,30 @@ export default function VendorProfilePage() {
     const [gstin, setGstin] = useState('');
     const [headOffice, setHeadOffice] = useState('');
     const [registeredOffice, setRegisteredOffice] = useState('');
+
+    // Bank Details
     const [bankName, setBankName] = useState('');
     const [bankBranch, setBankBranch] = useState('');
     const [accountName, setAccountName] = useState('');
     const [accountNumber, setAccountNumber] = useState('');
     const [ifsc, setIfsc] = useState('');
     const [upiId, setUpiId] = useState('');
+
+    // Brand Assets (URLs in Supabase Storage vendor-assets bucket)
+    const [logoUrl, setLogoUrl] = useState('/logo.png');
+    const [signatureUrl, setSignatureUrl] = useState('/signature.png');
+    const [stampUrl, setStampUrl] = useState('/stamp.png');
+
+    // Component & Pricing Settings
     const [defaultMargin, setDefaultMargin] = useState(0);
+    const [preferredPanelBrand, setPreferredPanelBrand] = useState('Adani');
+    const [preferredInverterBrand, setPreferredInverterBrand] = useState('Polycab');
+    const [preferredStructureMake, setPreferredStructureMake] = useState('APOLLO');
+    const [customTerms, setCustomTerms] = useState('');
+
+    const logoInputRef = useRef<HTMLInputElement>(null);
+    const signatureInputRef = useRef<HTMLInputElement>(null);
+    const stampInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -64,15 +96,63 @@ export default function VendorProfilePage() {
             setGstin(vendor.gstin || '');
             setHeadOffice(vendor.head_office || '');
             setRegisteredOffice(vendor.registered_office || '');
+
             setBankName(vendor.bank_name || '');
             setBankBranch(vendor.bank_branch || '');
             setAccountName(vendor.account_name || '');
             setAccountNumber(vendor.account_number || '');
             setIfsc(vendor.ifsc || '');
             setUpiId(vendor.upi_id || '');
+
+            setLogoUrl(vendor.logo_url || '/logo.png');
+            setSignatureUrl(vendor.signature_url || '/signature.png');
+            setStampUrl(vendor.stamp_url || '/stamp.png');
+
             setDefaultMargin(Number(vendor.default_margin) || 0);
+
+            const compSettings = vendor.components_settings || {};
+            setPreferredPanelBrand(compSettings.preferredPanelBrand || 'Adani');
+            setPreferredInverterBrand(compSettings.preferredInverterBrand || 'Polycab');
+            setPreferredStructureMake(compSettings.preferredStructureMake || 'APOLLO');
+            setCustomTerms(compSettings.customTerms || '');
         }
     }, [user, vendor, authLoading, router]);
+
+    // Handle Asset Upload to Supabase Storage Bucket 'vendor-assets'
+    const handleFileUpload = async (file: File, type: 'logo' | 'signature' | 'stamp') => {
+        if (!vendor?.id) return;
+
+        if (type === 'logo') setUploadingLogo(true);
+        if (type === 'signature') setUploadingSignature(true);
+        if (type === 'stamp') setUploadingStamp(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('type', type);
+            formData.append('vendor_id', vendor.id);
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            const json = await res.json();
+            if (!json.success) throw new Error(json.message);
+
+            if (type === 'logo') setLogoUrl(json.url);
+            if (type === 'signature') setSignatureUrl(json.url);
+            if (type === 'stamp') setStampUrl(json.url);
+
+            setSuccessMsg(`${type.toUpperCase()} uploaded successfully! Remember to save changes below.`);
+        } catch (err: any) {
+            setErrorMsg(err.message || 'Failed to upload asset');
+        } finally {
+            if (type === 'logo') setUploadingLogo(false);
+            if (type === 'signature') setUploadingSignature(false);
+            if (type === 'stamp') setUploadingStamp(false);
+        }
+    };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -83,6 +163,13 @@ export default function VendorProfilePage() {
         setSuccessMsg('');
 
         try {
+            const componentsSettings = {
+                preferredPanelBrand,
+                preferredInverterBrand,
+                preferredStructureMake,
+                customTerms,
+            };
+
             const res = await fetch('/api/vendors', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -103,7 +190,11 @@ export default function VendorProfilePage() {
                     account_number: accountNumber.trim() || null,
                     ifsc: ifsc.trim() || null,
                     upi_id: upiId.trim() || null,
+                    logo_url: logoUrl,
+                    signature_url: signatureUrl,
+                    stamp_url: stampUrl,
                     default_margin: Number(defaultMargin) || 0,
+                    components_settings: componentsSettings,
                 }),
             });
 
@@ -111,7 +202,7 @@ export default function VendorProfilePage() {
             if (!json.success) throw new Error(json.message);
 
             await refreshVendor();
-            setSuccessMsg('Shop profile and bank details updated successfully!');
+            setSuccessMsg('Shop profile, brand assets, and pricing settings updated successfully!');
         } catch (err: any) {
             setErrorMsg(err.message || 'Failed to save changes');
         } finally {
@@ -122,6 +213,7 @@ export default function VendorProfilePage() {
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: '#f4f6f8', py: 4 }}>
             <Container maxWidth="md">
+                {/* Header */}
                 <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                         <Button
@@ -133,14 +225,27 @@ export default function VendorProfilePage() {
                             Dashboard
                         </Button>
                         <Box>
-                            <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b' }}>
-                                Shop Profile & Branding
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                                    Shop Settings & Brand Assets
+                                </Typography>
+                                <Chip label="Vendor Workspace" size="small" sx={{ bgcolor: '#ff9800', color: '#fff', fontWeight: 700 }} />
+                            </Box>
                             <Typography variant="body2" sx={{ color: '#64748b' }}>
-                                Manage your shop details printed on every customer proposal and PDF
+                                Manage your company logo, official stamp seal, bank details & component defaults
                             </Typography>
                         </Box>
                     </Box>
+
+                    <Button
+                        variant="contained"
+                        startIcon={saving ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SaveIcon />}
+                        onClick={handleSave}
+                        disabled={saving}
+                        sx={{ bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' }, fontWeight: 700, px: 3 }}
+                    >
+                        {saving ? 'Saving...' : 'Save Settings'}
+                    </Button>
                 </Box>
 
                 {successMsg && (
@@ -155,37 +260,221 @@ export default function VendorProfilePage() {
                     </Alert>
                 )}
 
-                {/* Stamp & Seal Preview Card */}
-                <Card sx={{ mb: 4, borderRadius: 3, border: '1px solid #e2e8f0', boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
-                    <CardContent sx={{ p: 3 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#ff9800', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <VerifiedIcon fontSize="small" /> Official Signature & Company Stamp
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-                            <Box
-                                component="img"
-                                src={vendor?.signature_url || '/signature.png'}
-                                alt="Signature & Stamp"
-                                sx={{ height: 80, objectFit: 'contain', bgcolor: '#f8fafc', p: 1, borderRadius: 2, border: '1px dashed #cbd5e1' }}
-                            />
-                            <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#1e293b' }}>
-                                    {vendor?.authorized_signatory || 'Authorized Signatory'}
-                                </Typography>
-                                <Typography variant="body2" sx={{ color: '#64748b' }}>
-                                    This transparent seal is automatically stamped onto all customer PDFs and WhatsApp quotations.
-                                </Typography>
-                            </Box>
-                        </Box>
-                    </CardContent>
-                </Card>
-
                 <form onSubmit={handleSave}>
-                    {/* Company Details */}
+                    {/* Brand Assets Upload Card */}
+                    <Card sx={{ mb: 4, borderRadius: 3, border: '1px solid #fed7aa', boxShadow: '0 4px 16px rgba(255,152,0,0.08)' }}>
+                        <CardContent sx={{ p: 3 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#c2410c', display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <VerifiedIcon fontSize="small" /> Brand Visual Assets (Stored in Cloud Bucket)
+                                </Typography>
+                                <Chip label="Transparent PNGs Recommended" size="small" sx={{ bgcolor: '#ffedd5', color: '#c2410c', fontWeight: 600, fontSize: 11 }} />
+                            </Box>
+                            <Typography variant="body2" sx={{ color: '#64748b', mb: 3 }}>
+                                When you create an account, default Karan Solar seals are present. Upload your own shop logo, signature, and stamp here to fully white-label your customer quotes.
+                            </Typography>
+
+                            <Grid container spacing={3}>
+                                {/* 1. Company Logo */}
+                                <Grid size={{ xs: 12, md: 4 }}>
+                                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed #cbd5e1', bgcolor: '#fff', textAlign: 'center' }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                                            Company Logo
+                                        </Typography>
+                                        <Box sx={{ height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5, p: 1 }}>
+                                            <Box
+                                                component="img"
+                                                src={logoUrl || '/logo.png'}
+                                                alt="Logo"
+                                                sx={{ maxHeight: 75, maxWidth: '100%', objectFit: 'contain' }}
+                                                onError={(e: any) => { e.target.src = '/logo.png'; }}
+                                            />
+                                        </Box>
+                                        <input
+                                            type="file"
+                                            ref={logoInputRef}
+                                            accept="image/*"
+                                            style={{ display: 'none' }}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleFileUpload(file, 'logo');
+                                            }}
+                                        />
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={uploadingLogo ? <CircularProgress size={14} /> : <CloudUploadIcon />}
+                                            onClick={() => logoInputRef.current?.click()}
+                                            disabled={uploadingLogo}
+                                            sx={{ textTransform: 'none', fontWeight: 600, fontSize: 11 }}
+                                        >
+                                            {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
+                                        </Button>
+                                    </Box>
+                                </Grid>
+
+                                {/* 2. Signature */}
+                                <Grid size={{ xs: 12, md: 4 }}>
+                                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed #cbd5e1', bgcolor: '#fff', textAlign: 'center' }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                                            Authorized Signature
+                                        </Typography>
+                                        <Box sx={{ height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5, p: 1 }}>
+                                            <Box
+                                                component="img"
+                                                src={signatureUrl || '/signature.png'}
+                                                alt="Signature"
+                                                sx={{ maxHeight: 75, maxWidth: '100%', objectFit: 'contain' }}
+                                                onError={(e: any) => { e.target.src = '/signature.png'; }}
+                                            />
+                                        </Box>
+                                        <input
+                                            type="file"
+                                            ref={signatureInputRef}
+                                            accept="image/*"
+                                            style={{ display: 'none' }}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleFileUpload(file, 'signature');
+                                            }}
+                                        />
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={uploadingSignature ? <CircularProgress size={14} /> : <CloudUploadIcon />}
+                                            onClick={() => signatureInputRef.current?.click()}
+                                            disabled={uploadingSignature}
+                                            sx={{ textTransform: 'none', fontWeight: 600, fontSize: 11 }}
+                                        >
+                                            {uploadingSignature ? 'Uploading...' : 'Upload Signature'}
+                                        </Button>
+                                    </Box>
+                                </Grid>
+
+                                {/* 3. Stamp / Seal */}
+                                <Grid size={{ xs: 12, md: 4 }}>
+                                    <Box sx={{ p: 2, borderRadius: 2, border: '1px dashed #cbd5e1', bgcolor: '#fff', textAlign: 'center' }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#1e293b' }}>
+                                            Official Stamp / Seal
+                                        </Typography>
+                                        <Box sx={{ height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5, p: 1 }}>
+                                            <Box
+                                                component="img"
+                                                src={stampUrl || '/stamp.png'}
+                                                alt="Stamp"
+                                                sx={{ maxHeight: 75, maxWidth: '100%', objectFit: 'contain' }}
+                                                onError={(e: any) => { e.target.src = '/stamp.png'; }}
+                                            />
+                                        </Box>
+                                        <input
+                                            type="file"
+                                            ref={stampInputRef}
+                                            accept="image/*"
+                                            style={{ display: 'none' }}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleFileUpload(file, 'stamp');
+                                            }}
+                                        />
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            startIcon={uploadingStamp ? <CircularProgress size={14} /> : <CloudUploadIcon />}
+                                            onClick={() => stampInputRef.current?.click()}
+                                            disabled={uploadingStamp}
+                                            sx={{ textTransform: 'none', fontWeight: 600, fontSize: 11 }}
+                                        >
+                                            {uploadingStamp ? 'Uploading...' : 'Upload Stamp'}
+                                        </Button>
+                                    </Box>
+                                </Grid>
+                            </Grid>
+                        </CardContent>
+                    </Card>
+
+                    {/* Component & Margin Preferences Card */}
+                    <Card sx={{ mb: 4, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+                        <CardContent sx={{ p: 3 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e3a5f', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <TuneIcon fontSize="small" /> Component Preferences & Default Margins
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: '#64748b', mb: 2.5 }}>
+                                Set your default hardware makes and default profit margin. You or the developer can also adjust these on call.
+                            </Typography>
+
+                            <Grid container spacing={2}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <TextField
+                                        fullWidth
+                                        type="number"
+                                        label="Default Profit Margin (₹ / kW)"
+                                        value={defaultMargin}
+                                        onChange={(e) => setDefaultMargin(Number(e.target.value))}
+                                        helperText="Added to base quote price automatically"
+                                    />
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <FormControl fullWidth>
+                                        <InputLabel>Preferred Panel Brand</InputLabel>
+                                        <Select
+                                            value={preferredPanelBrand}
+                                            label="Preferred Panel Brand"
+                                            onChange={(e) => setPreferredPanelBrand(e.target.value)}
+                                        >
+                                            {['Adani', 'Waaree', 'Goldi', 'Rayzon', 'Premier', 'Vikram Solar', 'Other'].map(b => (
+                                                <MenuItem key={b} value={b}>{b}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <FormControl fullWidth>
+                                        <InputLabel>Preferred Inverter Brand</InputLabel>
+                                        <Select
+                                            value={preferredInverterBrand}
+                                            label="Preferred Inverter Brand"
+                                            onChange={(e) => setPreferredInverterBrand(e.target.value)}
+                                        >
+                                            {['Polycab', 'Growatt', 'Deye', 'Solis', 'Sungrow', 'GoodWe', 'Luminous', 'Other'].map(b => (
+                                                <MenuItem key={b} value={b}>{b}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <FormControl fullWidth>
+                                        <InputLabel>Structure Make Specification</InputLabel>
+                                        <Select
+                                            value={preferredStructureMake}
+                                            label="Structure Make Specification"
+                                            onChange={(e) => setPreferredStructureMake(e.target.value)}
+                                        >
+                                            <MenuItem value="APOLLO">APOLLO (Default)</MenuItem>
+                                            <MenuItem value="TATA">TATA</MenuItem>
+                                            <MenuItem value="APOLLO / TATA">APOLLO / TATA</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                                <Grid size={{ xs: 12 }}>
+                                    <TextField
+                                        fullWidth
+                                        multiline
+                                        rows={2}
+                                        label="Custom Terms & Notes (Appears on all quotations)"
+                                        value={customTerms}
+                                        onChange={(e) => setCustomTerms(e.target.value)}
+                                        placeholder="e.g. 50% Advance with Purchase Order, 50% before dispatch. Net metering assistance included."
+                                    />
+                                </Grid>
+                            </Grid>
+                        </CardContent>
+                    </Card>
+
+                    {/* Shop Identification */}
                     <Card sx={{ mb: 4, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                         <CardContent sx={{ p: 3 }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e3a5f', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <StorefrontIcon fontSize="small" /> Shop Identification
+                                <StorefrontIcon fontSize="small" /> Shop Identification & Contact Info
                             </Typography>
                             <Grid container spacing={2}>
                                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -258,15 +547,23 @@ export default function VendorProfilePage() {
                                         onChange={(e) => setHeadOffice(e.target.value)}
                                     />
                                 </Grid>
+                                <Grid size={{ xs: 12 }}>
+                                    <TextField
+                                        fullWidth
+                                        label="Registered Office Address"
+                                        value={registeredOffice}
+                                        onChange={(e) => setRegisteredOffice(e.target.value)}
+                                    />
+                                </Grid>
                             </Grid>
                         </CardContent>
                     </Card>
 
-                    {/* Bank Details */}
+                    {/* Bank & Payment Details */}
                     <Card sx={{ mb: 4, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
                         <CardContent sx={{ p: 3 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#10b981', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <AccountBalanceIcon fontSize="small" /> Bank Details (For Client Payments)
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e3a5f', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <AccountBalanceIcon fontSize="small" /> Official Bank & UPI Settlement
                             </Typography>
                             <Grid container spacing={2}>
                                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -281,7 +578,7 @@ export default function VendorProfilePage() {
                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <TextField
                                         fullWidth
-                                        label="Branch"
+                                        label="Branch Name"
                                         value={bankBranch}
                                         onChange={(e) => setBankBranch(e.target.value)}
                                         placeholder="Shivpur, Varanasi"
@@ -290,10 +587,9 @@ export default function VendorProfilePage() {
                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <TextField
                                         fullWidth
-                                        label="Account Beneficiary Name"
+                                        label="Account Holder / Beneficiary Name"
                                         value={accountName}
                                         onChange={(e) => setAccountName(e.target.value)}
-                                        placeholder="KARAN SOLAR SHOP"
                                     />
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 6 }}>
@@ -309,40 +605,42 @@ export default function VendorProfilePage() {
                                         fullWidth
                                         label="IFSC Code"
                                         value={ifsc}
-                                        onChange={(e) => setIfsc(e.target.value)}
+                                        onChange={(e) => setIfsc(e.target.value.toUpperCase())}
                                         placeholder="HDFC0004807"
                                     />
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 6 }}>
                                     <TextField
                                         fullWidth
-                                        label="UPI ID (for QR Code)"
+                                        label="UPI ID / VPA"
                                         value={upiId}
                                         onChange={(e) => setUpiId(e.target.value)}
-                                        placeholder="vyapar.173575988777@hdfcbank"
+                                        placeholder="karan.solar@hdfcbank"
                                     />
                                 </Grid>
                             </Grid>
                         </CardContent>
                     </Card>
 
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 6 }}>
                         <Button
-                            variant="contained"
                             type="submit"
+                            variant="contained"
                             size="large"
+                            startIcon={saving ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : <SaveIcon />}
                             disabled={saving}
-                            startIcon={<SaveIcon />}
                             sx={{
                                 bgcolor: '#ff9800',
                                 '&:hover': { bgcolor: '#f57c00' },
                                 fontWeight: 800,
                                 px: 4,
-                                py: 1.2,
-                                borderRadius: 2
+                                py: 1.5,
+                                fontSize: '1rem',
+                                borderRadius: 2,
+                                boxShadow: '0 8px 20px rgba(255,152,0,0.3)',
                             }}
                         >
-                            {saving ? <CircularProgress size={24} sx={{ color: '#fff' }} /> : 'Save Profile Changes'}
+                            {saving ? 'Saving Profile...' : 'Save All Changes'}
                         </Button>
                     </Box>
                 </form>

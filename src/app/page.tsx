@@ -165,10 +165,24 @@ function QuotationBuilder() {
         },
         logo: foundVendor.logo_url || "/logo.png",
         signature: foundVendor.signature_url || "/signature.png",
+        stamp: foundVendor.stamp_url || "/stamp.png",
         authorizedSignatory: foundVendor.authorized_signatory || "Authorized Signatory",
+        defaultMargin: foundVendor.default_margin || 0,
+        componentsSettings: foundVendor.components_settings || {},
       };
     }
     return companies.find(c => c.id === selectedCompanyId) || companies[0];
+  }, [selectedCompanyId, allVendors, vendor]);
+
+  // Sync vendor component defaults when vendor/company changes
+  useEffect(() => {
+    const foundVendor = allVendors.find(v => v.id === selectedCompanyId) || (vendor && vendor.id === selectedCompanyId ? vendor : null);
+    if (foundVendor?.components_settings) {
+      const cs = foundVendor.components_settings;
+      if (cs.preferredPanelBrand) setPanelBrand(cs.preferredPanelBrand);
+      if (cs.preferredInverterBrand) setInverterBrand(cs.preferredInverterBrand);
+      if (cs.preferredStructureMake) setB2bStructureMake(cs.preferredStructureMake);
+    }
   }, [selectedCompanyId, allVendors, vendor]);
 
   // Customer Details
@@ -1091,6 +1105,12 @@ function QuotationBuilder() {
   };
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+
+  const resolveMediaUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return origin ? `${origin}${url}` : url;
+  };
 
   return (
     <Box sx={{ display: "flex", flexDirection: { xs: "column", md: "row" }, height: { xs: "auto", md: "100vh" }, bgcolor: "#f1f5f9", overflow: { xs: "auto", md: "hidden" } }}>
@@ -2093,7 +2113,7 @@ function QuotationBuilder() {
             {/* B2B Header */}
             <Box className="avoid-break" sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "3.5px solid #d97706", pb: 1, mb: 1 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.75 }}>
-                <Box component="img" src={origin ? `${origin}${activeCompany.logo}` : activeCompany.logo} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 92 : 68, maxWidth: activeCompany.id === "krishnanuja" ? 120 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                <Box component="img" src={resolveMediaUrl(activeCompany.logo)} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 92 : 68, maxWidth: activeCompany.id === "krishnanuja" ? 120 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
                 <Box>
                   <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "15px" : "20px", fontWeight: 900, color: "#b45309", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
                   <Typography sx={{ fontSize: "9.5px", fontWeight: 600, color: "#64748b", mt: 0.25, letterSpacing: 0.8, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
@@ -2279,7 +2299,12 @@ function QuotationBuilder() {
                 <Typography sx={{ fontSize: "10.5px", fontWeight: 900, color: "#b45309", mb: 0, textDecoration: "underline", textDecorationColor: "#d97706", textUnderlineOffset: 3 }}>
                   For {activeCompany.name}
                 </Typography>
-                <Box component="img" src={origin ? `${origin}${(activeCompany as any).signature || '/signature.png'}` : ((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 140, height: 50, objectFit: "contain", display: "block", ml: "auto", my: 0.2 }} onError={(e: any) => e.target.style.display = 'none'} />
+                <Box sx={{ position: "relative", minHeight: 52, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                  {(activeCompany as any).stamp && (
+                    <Box component="img" src={resolveMediaUrl((activeCompany as any).stamp)} alt="Stamp" sx={{ width: 68, height: 68, objectFit: "contain", position: "absolute", right: 36, top: -10, opacity: 0.85, pointerEvents: "none" }} onError={(e: any) => e.target.style.display = 'none'} />
+                  )}
+                  <Box component="img" src={resolveMediaUrl((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 140, height: 50, objectFit: "contain", display: "block", ml: "auto", my: 0.2, position: "relative", zIndex: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
+                </Box>
                 <Box sx={{ width: 140, height: 1, bgcolor: "#cbd5e1", mb: 0.2, ml: "auto" }} />
                 <Typography sx={{ fontSize: "7.5px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
               </Box>
@@ -2288,7 +2313,7 @@ function QuotationBuilder() {
             {/* Service Header */}
             <Box className="avoid-break" sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "4px solid #0d47a1", pb: 1.5, mb: 1.5 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                <Box component="img" src={origin ? `${origin}${activeCompany.logo}` : activeCompany.logo} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 95 : 72, maxWidth: activeCompany.id === "krishnanuja" ? 125 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                <Box component="img" src={resolveMediaUrl(activeCompany.logo)} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 95 : 72, maxWidth: activeCompany.id === "krishnanuja" ? 125 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
                 <Box>
                   <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "15px" : "22px", fontWeight: 900, color: "#0d47a1", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
                   <Typography sx={{ fontSize: "9.5px", fontWeight: 600, color: "#64748b", mt: 0.25, letterSpacing: 0.8, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
@@ -2399,7 +2424,12 @@ function QuotationBuilder() {
               </Box>
               <Box sx={{ textAlign: "right" }}>
                 <Typography sx={{ fontSize: "12px", fontWeight: 900, color: "#0d47a1", mb: 0, textDecoration: "underline", textDecorationColor: "#0d47a1", textUnderlineOffset: 3 }}>For {activeCompany.name}</Typography>
-                <Box component="img" src={origin ? `${origin}${(activeCompany as any).signature || '/signature.png'}` : ((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 160, height: 70, objectFit: "contain", display: "block", ml: "auto", my: 0.5 }} onError={(e: any) => e.target.style.display = 'none'} />
+                <Box sx={{ position: "relative", minHeight: 65, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                  {(activeCompany as any).stamp && (
+                    <Box component="img" src={resolveMediaUrl((activeCompany as any).stamp)} alt="Stamp" sx={{ width: 75, height: 75, objectFit: "contain", position: "absolute", right: 50, top: -10, opacity: 0.85, pointerEvents: "none" }} onError={(e: any) => e.target.style.display = 'none'} />
+                  )}
+                  <Box component="img" src={resolveMediaUrl((activeCompany as any).signature || '/signature.png')} alt="Signature" sx={{ width: 160, height: 65, objectFit: "contain", display: "block", ml: "auto", my: 0.2, position: "relative", zIndex: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
+                </Box>
                 <Box sx={{ width: 160, height: 1, bgcolor: "#cbd5e1", mb: 0.25, ml: "auto" }} />
                 <Typography sx={{ fontSize: "8px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
               </Box>
@@ -2410,7 +2440,7 @@ function QuotationBuilder() {
             {/* Header */}
             <Box className="avoid-break" sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "3.5px solid #eab308", pb: 1, mb: 1 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.75 }}>
-                <Box component="img" src={origin ? `${origin}${activeCompany.logo}` : activeCompany.logo} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 92 : 68, maxWidth: activeCompany.id === "krishnanuja" ? 120 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
+                <Box component="img" src={resolveMediaUrl(activeCompany.logo)} alt="Logo" sx={{ maxHeight: activeCompany.id === "krishnanuja" ? 92 : 68, maxWidth: activeCompany.id === "krishnanuja" ? 120 : 180, objectFit: "contain" }} onError={(e: any) => { e.target.style.display = 'none'; }} />
                 <Box>
                   <Typography sx={{ fontSize: activeCompany.name.length > 25 ? "15px" : "20px", fontWeight: 900, color: "#1e3a5f", letterSpacing: "-0.5px", lineHeight: 1.1, textTransform: "uppercase" }}>{activeCompany.name}</Typography>
                   <Typography sx={{ fontSize: "9.5px", fontWeight: 600, color: "#64748b", mt: 0.2, letterSpacing: 0.8, textTransform: "uppercase" }}>{activeCompany.tagline}</Typography>
@@ -2608,7 +2638,12 @@ function QuotationBuilder() {
               </Box>
               <Box sx={{ textAlign: "right", position: "relative" }}>
                 <Typography sx={{ fontSize: "10.5px", fontWeight: 900, color: "#1e3a5f", mb: 0, textDecoration: "underline", textDecorationColor: "#eab308", textUnderlineOffset: 3 }}>For {activeCompany.name}</Typography>
-                <Box component="img" src={origin ? `${origin}${(activeCompany as any).signature || '/signature.png'}` : ((activeCompany as any).signature || '/signature.png')} alt="Authorized Signatory" sx={{ width: 140, height: 50, objectFit: "contain", display: "block", ml: "auto", my: 0.2 }} onError={(e: any) => e.target.style.display = 'none'} />
+                <Box sx={{ position: "relative", minHeight: 52, display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                  {(activeCompany as any).stamp && (
+                    <Box component="img" src={resolveMediaUrl((activeCompany as any).stamp)} alt="Stamp" sx={{ width: 68, height: 68, objectFit: "contain", position: "absolute", right: 36, top: -10, opacity: 0.85, pointerEvents: "none" }} onError={(e: any) => e.target.style.display = 'none'} />
+                  )}
+                  <Box component="img" src={resolveMediaUrl((activeCompany as any).signature || '/signature.png')} alt="Authorized Signatory" sx={{ width: 140, height: 50, objectFit: "contain", display: "block", ml: "auto", my: 0.2, position: "relative", zIndex: 1 }} onError={(e: any) => e.target.style.display = 'none'} />
+                </Box>
                 <Box sx={{ width: 140, height: 1, bgcolor: "#cbd5e1", mb: 0.2, ml: "auto" }} />
                 <Typography sx={{ fontSize: "7.5px", color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Authorized Signatory</Typography>
               </Box>

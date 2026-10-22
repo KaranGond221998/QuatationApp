@@ -72,8 +72,10 @@ export async function POST(request: Request) {
             upi_id,
             logo_url,
             signature_url,
+            stamp_url,
             authorized_signatory,
             default_margin,
+            components_settings,
             role = 'vendor'
         } = body;
 
@@ -106,8 +108,10 @@ export async function POST(request: Request) {
             upi_id: upi_id || null,
             logo_url: logo_url || '/logo.png',
             signature_url: signature_url || '/signature.png',
+            stamp_url: stamp_url || '/stamp.png',
             authorized_signatory: authorized_signatory || null,
             default_margin: Number(default_margin) || 0,
+            components_settings: components_settings || {},
             status: 'active',
         };
 
@@ -172,6 +176,23 @@ export async function PUT(request: Request) {
         }
 
         const supabase = getServerSupabase();
+
+        // If password is being reset/updated
+        if (updates.password && updates.password.trim().length >= 6) {
+            const { data: vUsers } = await supabase
+                .from('vendor_users')
+                .select('id')
+                .eq('vendor_id', id);
+
+            if (vUsers && vUsers.length > 0) {
+                for (const vu of vUsers) {
+                    await supabase.auth.admin.updateUserById(vu.id, {
+                        password: updates.password.trim(),
+                    });
+                }
+            }
+            delete updates.password;
+        }
 
         const updatePayload: any = {
             ...updates,

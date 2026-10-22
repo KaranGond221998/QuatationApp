@@ -20,6 +20,7 @@ import {
   Construction,
   Inventory2,
   Storefront,
+  PhoneInTalk,
 } from "@mui/icons-material";
 import Link from "next/link";
 import { companyDetails } from "@/lib/companyDetails";
@@ -102,6 +103,13 @@ export default function AdminDashboard() {
       icon: <Receipt sx={{ fontSize: 40 }} />,
       color: "#9333ea",
       href: "/admin/quotations",
+    },
+    {
+      title: "Live Call Remote Control",
+      description: "Select vendor on call & modify components, margins & bank details live",
+      icon: <PhoneInTalk sx={{ fontSize: 40 }} />,
+      color: "#2563eb",
+      href: "/admin/vendors",
     },
     {
       title: "Vendor SaaS Portal",

@@ -146,8 +146,10 @@ export type Vendor = {
     upi_id?: string | null;
     logo_url?: string | null;
     signature_url?: string | null;
+    stamp_url?: string | null;
     authorized_signatory?: string | null;
     default_margin?: number;
+    components_settings?: any;
     status: 'active' | 'suspended';
     created_at?: string;
     updated_at?: string;
